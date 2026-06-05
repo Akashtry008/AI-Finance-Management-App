@@ -1,0 +1,27 @@
+.theme-toggle-btn {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  border: 1px solid var(--btn-sec-border);
+  background: var(--btn-sec-bg);
+  color: var(--text-secondary);
+  transition: all 0.25s ease;
+  font-size: 0.85rem;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 500;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--btn-sec-hover);
+  border-color: var(--btn-sec-border-hover);
+  color: var(--text-primary);
+}
+
+body.dark-theme .theme-toggle-btn:hover {
+  border-color: rgba(255,255,255,0.2);
+}

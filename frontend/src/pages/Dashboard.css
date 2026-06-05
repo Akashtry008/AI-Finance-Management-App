@@ -1,0 +1,224 @@
+.dashboard {
+  padding: 0.5rem 0;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.dashboard-header h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.25rem;
+}
+
+.dashboard-filters {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.dashboard-filters select {
+  width: auto;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  cursor: default;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+}
+
+.stat-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.stat-label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-income .stat-icon-wrap { background: rgba(16, 185, 129, 0.15); color: var(--success-color); }
+.stat-expense .stat-icon-wrap { background: rgba(239, 68, 68, 0.15); color: var(--danger-color); }
+.stat-savings .stat-icon-wrap { background: rgba(99, 102, 241, 0.15); color: var(--accent-color); }
+.stat-yearly .stat-icon-wrap { background: rgba(245, 158, 11, 0.15); color: var(--warning-color); }
+
+.stat-value {
+  font-size: 1.65rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.stat-income .stat-value { color: var(--success-color); }
+.stat-expense .stat-value { color: var(--danger-color); }
+.stat-savings .stat-value { color: var(--accent-color); }
+.stat-yearly .stat-value { color: var(--warning-color); }
+
+.stat-subtitle {
+  font-size: 0.8rem;
+}
+
+.dashboard-section {
+  margin-top: 1rem;
+}
+
+.dashboard-section h3 {
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+}
+
+.recent-txn-table {
+  overflow-x: auto;
+  padding: 0;
+}
+
+.recent-txn-table .data-table {
+  min-width: 600px;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1rem;
+}
+
+.txn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.badge-income {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success-color);
+}
+
+.badge-expense {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--danger-color);
+}
+
+/* ─── Charts ──────────────────────────────── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.chart-card {
+  padding: 1.5rem;
+  min-height: 300px;
+}
+
+.chart-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 1.25rem;
+}
+
+.chart-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  font-size: 0.9rem;
+}
+
+.chart-tooltip {
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  padding: 0.75rem 1rem;
+  box-shadow: var(--glass-shadow);
+  font-size: 0.85rem;
+}
+
+.chart-tooltip-label {
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: var(--text-primary);
+}
+
+/* ─── Responsive ─────────────────────────── */
+@media (max-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .stat-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dashboard-filters {
+    width: 100%;
+  }
+
+  .dashboard-filters select {
+    flex: 1;
+  }
+
+  .data-table th:nth-child(3),
+  .data-table td:nth-child(3) {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

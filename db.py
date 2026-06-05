@@ -1,23 +1,23 @@
-# db.py
+# db.py  –  MySQL backend via XAMPP
 import mysql.connector
-from mysql.connector import Error
 from contextlib import contextmanager
 from config import DB_CONFIG
 
+
 @contextmanager
 def get_connection():
-    conn = None
+    conn = mysql.connector.connect(**DB_CONFIG)
     try:
-        conn = mysql.connector.connect(**DB_CONFIG)
         yield conn
     finally:
-        if conn is not None and conn.is_connected():
+        if conn.is_connected():
             conn.close()
+
 
 @contextmanager
 def get_cursor(commit: bool = False):
     with get_connection() as conn:
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(dictionary=True)   # rows as dicts
         try:
             yield cursor
             if commit:

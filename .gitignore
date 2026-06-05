@@ -1,0 +1,26 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Logs and runtime files
+*.log
+
+# Generated frontend build
+frontend/dist/
+
+# Node modules should not be committed
+frontend/node_modules/
