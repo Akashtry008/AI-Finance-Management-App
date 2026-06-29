@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api';
-import { LogIn, User, Lock, TrendingUp, ShieldCheck, Mail } from 'lucide-react';
+import { LogIn, User, Lock, TrendingUp, Mail } from 'lucide-react';
 import FloatingNodes from '../components/FloatingNodes';
 import './Auth.css';
 
@@ -48,7 +48,7 @@ export default function Login() {
     }
   };
 
-  const fillAdmin = () => setForm({ username: 'admin', password: 'admin123' });
+
 
   if (isForgotMode) {
     return (
@@ -129,15 +129,6 @@ export default function Login() {
             <LogIn size={16} />
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
-          <div
-            className="admin-hint"
-            onClick={fillAdmin}
-            title="Click to auto-fill admin credentials"
-          >
-            <ShieldCheck size={14} />
-            Quick fill: <strong>admin</strong> / <strong>admin123</strong>
-            <span className="admin-hint-fill">↑ Click to fill</span>
-          </div>
         </form>
         <p className="auth-footer text-muted">
           Don't have an account? <Link to="/register">Create one</Link>

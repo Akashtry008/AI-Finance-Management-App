@@ -14,6 +14,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', token);
     localStorage.setItem('username', username);
     localStorage.setItem('is_admin', isAdmin ? 'true' : 'false');
+    localStorage.removeItem('finance-os-tour-done');
     setUser({ token, username, isAdmin });
   };
 
@@ -21,6 +22,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     localStorage.removeItem('is_admin');
+    localStorage.removeItem('finance-os-tour-done');
     setUser(null);
   };
 
