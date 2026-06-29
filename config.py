@@ -1,21 +1,22 @@
+import os
+
+# ── Database Configuration ─────────────────────────────────────────────────────
+# In production (Railway): these env vars are injected automatically by Railway's MySQL plugin.
+# Locally (XAMPP): falls back to localhost defaults.
 DB_CONFIG = {
-    'host': 'localhost',
-    'port': 3306,
-    'user': 'root',
-    'password': '',          # XAMPP default: root has no password
-    'database': 'finance_app',
-    'charset': 'utf8mb4',
+    'host':     os.environ.get('MYSQLHOST',     'localhost'),
+    'port':     int(os.environ.get('MYSQLPORT', '3306')),
+    'user':     os.environ.get('MYSQLUSER',     'root'),
+    'password': os.environ.get('MYSQLPASSWORD', ''),
+    'database': os.environ.get('MYSQLDATABASE', 'finance_app'),
+    'charset':  'utf8mb4',
 }
 
-# ── Email / SMTP Configuration ────────────────────────────────────────────────
-# To enable password reset emails:
-#   1. Create a Gmail App Password at: https://myaccount.google.com/apppasswords
-#      (requires 2-Step Verification to be enabled)
-#   2. Fill in your Gmail address and the 16-character App Password below.
+# ── Email / SMTP Configuration ─────────────────────────────────────────────────
 SMTP_CONFIG = {
-    'server':   'smtp.gmail.com',
-    'port':     587,
-    'username': 'akashmakavana0@gmail.com',   # e.g. yourname@gmail.com
-    'password': 'julrrcswkbjztvsb',   # e.g. abcd efgh ijkl mnop  (Gmail App Password)
-    'app_url':  'http://localhost:5173',
+    'server':   os.environ.get('SMTP_SERVER',   'smtp.gmail.com'),
+    'port':     int(os.environ.get('SMTP_PORT', '587')),
+    'username': os.environ.get('SMTP_USERNAME', 'akashmakavana0@gmail.com'),
+    'password': os.environ.get('SMTP_PASSWORD', 'julrrcswkbjztvsb'),
+    'app_url':  os.environ.get('APP_URL',       'http://localhost:5173'),
 }

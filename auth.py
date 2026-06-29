@@ -17,21 +17,50 @@ def hash_password(plain_password: str) -> str:
 
 
 def verify_password(plain_password: str, password_hash) -> bool:
-    if isinstance(password_hash, str):
-        password_hash = password_hash.encode("utf-8")
-    return bcrypt.checkpw(plain_password.encode("utf-8"), password_hash)
+    """Safely compare password against hash regardless of DB column type (str/bytes/memoryview)."""
+    try:
+        if isinstance(password_hash, memoryview):
+            password_hash = bytes(password_hash)
+        if isinstance(password_hash, str):
+            password_hash = password_hash.encode("utf-8")
+        return bcrypt.checkpw(plain_password.encode("utf-8"), password_hash)
+    except Exception:
+        return False
 
 
 def ensure_admin_exists():
-    """Seed the admin account on startup if it doesn't exist yet."""
+    """Seed the admin account on startup if it doesn't exist yet.
+    Also repairs the hash if it's stored as raw bytes (VARBINARY corruption).
+    """
     with get_cursor(commit=True) as cur:
-        cur.execute("SELECT id FROM users WHERE username = %s", (ADMIN_USERNAME,))
-        if not cur.fetchone():
+        cur.execute("SELECT id, password_hash FROM users WHERE username = %s", (ADMIN_USERNAME,))
+        row = cur.fetchone()
+        if not row:
+            # Admin doesn't exist at all — create fresh
             pw_hash = hash_password(ADMIN_PASSWORD)
             cur.execute(
                 "INSERT INTO users (username, email, password_hash, is_admin) VALUES (%s, %s, %s, 1)",
                 (ADMIN_USERNAME, "admin@localhost.com", pw_hash),
             )
+        else:
+            # Admin exists — verify the stored hash is valid bcrypt, fix if broken
+            ph = row["password_hash"]
+            if isinstance(ph, (bytes, memoryview)):
+                ph = bytes(ph) if isinstance(ph, memoryview) else ph
+                try:
+                    ph_str = ph.decode("utf-8")
+                except Exception:
+                    ph_str = ""
+            else:
+                ph_str = ph or ""
+            # Re-hash if the stored value isn't a valid bcrypt hash
+            if not ph_str.startswith("$2b$") and not ph_str.startswith("$2a$"):
+                new_hash = hash_password(ADMIN_PASSWORD)
+                cur.execute(
+                    "UPDATE users SET password_hash = %s WHERE username = %s",
+                    (new_hash, ADMIN_USERNAME),
+                )
+                print("[startup] Admin password hash was corrupt — re-hashed successfully.")
 
 
 def register_user(username: str, email: str, password: str) -> bool:

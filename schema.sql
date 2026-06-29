@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
     display_name  VARCHAR(100),
     theme         VARCHAR(20)    DEFAULT 'dark',
     currency      VARCHAR(10)    DEFAULT 'INR',
-    password_hash VARBINARY(255) NOT NULL,
+    password_hash VARCHAR(255)   NOT NULL,
     is_admin      TINYINT(1)     NOT NULL DEFAULT 0,
     created_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;

@@ -5,8 +5,11 @@ __pycache__/
 
 # Virtual environments
 venv/
-.env
 .venv/
+
+# Real env secrets — never commit these
+.env
+!.env.example
 
 # OS files
 .DS_Store

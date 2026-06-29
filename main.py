@@ -1,5 +1,6 @@
 import datetime
 import os
+from contextlib import asynccontextmanager
 from datetime import date
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -51,17 +52,14 @@ SECRET_KEY = "super-secret-key-for-local-dev-change-me"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
-app = FastAPI(title="Finance Management API")
-
-
-@app.on_event("startup")
-def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     """Seed admin account and ensure all tables exist on startup."""
+    # ── Startup ──────────────────────────────────────────────────────────────
     try:
         from db import get_cursor
         with get_cursor(commit=True) as cur:
             try:
-                # Add profile columns if they don't exist (ignore duplicate column error)
                 cur.execute("ALTER TABLE users ADD COLUMN email VARCHAR(120) UNIQUE")
             except Exception:
                 pass
@@ -77,7 +75,7 @@ def startup_event():
                 cur.execute("ALTER TABLE users ADD COLUMN currency VARCHAR(10) DEFAULT 'INR'")
             except Exception:
                 pass
-            
+
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS password_resets (
                     token VARCHAR(64) PRIMARY KEY,
@@ -87,8 +85,6 @@ def startup_event():
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             """)
-            
-            # Savings Goals Migration
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS savings_goals (
                     id             INT            AUTO_INCREMENT PRIMARY KEY,
@@ -146,22 +142,51 @@ def startup_event():
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             """)
-        print("[startup] Split expense tables ready.")
+        print("[startup] Tables ready.")
     except Exception as e:
-        print(f"[startup] WARNING: Could not create split tables – {e}")
+        print(f"[startup] WARNING: Could not create tables – {e}")
+
+    # ── Migrate password_hash VARBINARY → VARCHAR (permanent login fix) ──────
+    try:
+        from db import get_cursor
+        with get_cursor(commit=True) as cur:
+            cur.execute("""
+                SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'users'
+                  AND COLUMN_NAME = 'password_hash'
+            """)
+            col_info = cur.fetchone()
+            if col_info and col_info.get('DATA_TYPE', '').lower() == 'varbinary':
+                cur.execute(
+                    "ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NOT NULL"
+                )
+                print("[startup] Migrated password_hash VARBINARY -> VARCHAR.")
+    except Exception as e:
+        print(f"[startup] WARNING: Column migration skipped – {e}")
+
+    # ── Seed admin ───────────────────────────────────────────────────────────
     try:
         ensure_admin_exists()
-        print("[startup] Admin ready  →  username: admin  |  password: admin123")
+        print("[startup] Admin ready  ->  username: admin  |  password: admin123")
     except Exception as e:
         print(f"[startup] WARNING: Could not seed admin – {e}")
         print("[startup] Make sure XAMPP MySQL is running and 'finance_app' DB exists.")
 
+    yield  # App runs here
+    # ── Shutdown (nothing needed) ────────────────────────────────────────────
 
-# Allow only the local dev frontend origins to avoid wildcard+credentials conflicts
-frontend_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+
+app = FastAPI(title="Finance Management API", lifespan=lifespan)
+
+
+# Read allowed origins from env var (comma-separated list).
+# Locally defaults to localhost. In Railway, set ALLOWED_ORIGINS=https://your-app.vercel.app
+_raw_origins = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173"
+)
+frontend_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=frontend_origins,
@@ -428,7 +453,7 @@ def delete_user(target_user_id: int, admin_id: int = Depends(get_current_admin))
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
 
 
 # ── Charts ───────────────────────────────────────────────────────────────────
