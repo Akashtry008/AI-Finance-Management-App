@@ -227,39 +227,6 @@ def get_current_admin(user_id: int = Depends(get_current_user)) -> int:
     return user_id
 
 
-@app.get("/debug-db")
-def debug_db():
-    from config import DB_CONFIG
-    import mysql.connector
-    
-    # Hide password in output for safety
-    safe_config = DB_CONFIG.copy()
-    if 'password' in safe_config and safe_config['password']:
-        safe_config['password'] = '***' + safe_config['password'][-4:]
-        
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT 1")
-        res = cur.fetchone()
-        cur.execute("SHOW TABLES")
-        tables = [list(r.values())[0] for r in cur.fetchall()]
-        cur.close()
-        conn.close()
-        return {
-            "status": "success",
-            "db_config_used": safe_config,
-            "ping_result": res,
-            "tables_found": tables
-        }
-    except Exception as e:
-        return {
-            "status": "failed",
-            "db_config_used": safe_config,
-            "error_type": type(e).__name__,
-            "error_message": str(e)
-        }
-
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
 class UserReg(BaseModel):
