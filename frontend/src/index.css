@@ -6,8 +6,9 @@
   --bg-secondary: #ffffff;
   --bg-accent: #f1f5f9;
   
-  --text-primary: #334155;
-  --text-secondary: #64748b;
+  --text-primary: #0f172a; /* Deep Slate - High Contrast in Light Theme */
+  --text-secondary: #475569;
+  --text-color: #0f172a;
   
   --accent-color: #10b981; /* Emerald Green */
   --accent-hover: #059669;
@@ -28,9 +29,9 @@
   /* Theme-specific UI elements */
   --input-bg: #ffffff;
   --btn-sec-bg: #f1f5f9;
-  --btn-sec-border: #e2e8f0;
+  --btn-sec-border: #cbd5e1;
   --btn-sec-hover: #e2e8f0;
-  --btn-sec-border-hover: #cbd5e1;
+  --btn-sec-border-hover: #94a3b8;
   --table-hover-bg: #f8fafc;
 
   --transition-speed: 0.3s;
@@ -42,8 +43,9 @@ body.dark-theme {
   --bg-secondary: #161822;
   --bg-accent: #1e2130;
   
-  --text-primary: #f0f2f5;
-  --text-secondary: #a0a4b8;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-color: #f8fafc;
   
   --accent-color: #10b981; /* Keeping Emerald as accent even in dark mode for consistency, or revert to Indigo */
   
@@ -201,14 +203,14 @@ input:focus, select:focus, textarea:focus {
 .app-container {
   display: flex;
   height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
   overflow: hidden;
 }
 
 .sidebar {
-  width: 240px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--glass-border);
-  padding: 1.5rem 1rem;
   display: flex;
   flex-direction: column;
 }
@@ -256,6 +258,31 @@ input:focus, select:focus, textarea:focus {
 
 .data-table tbody tr:hover {
   background: var(--table-hover-bg);
+}
+
+/* Modal Overlay & Card Defaults */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  padding: 1.75rem;
+  margin: auto;
 }
 
 /* ============================================================
@@ -311,11 +338,24 @@ input:focus, select:focus, textarea:focus {
 @media (max-width: 768px) {
   .app-container {
     flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
   }
 
   .main-content {
     padding: 1rem;
-    padding-top: 4rem; /* space for hamburger */
+    padding-top: 4.5rem; /* Clean space for sticky mobile topbar */
+    width: 100%;
+    overflow-y: visible;
+  }
+
+  /* Page headers: wrap flexibly without forcing full-width buttons */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
   }
 
   /* Transactions responsive */
@@ -330,21 +370,12 @@ input:focus, select:focus, textarea:focus {
     width: 100%;
   }
 
-  .txn-filters select { flex: 1; min-width: 120px; }
-
-  /* Page headers */
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
+  .txn-filters select {
+    flex: 1;
+    min-width: 110px;
   }
 
-  .page-header .btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  /* Admin table: hide less important columns */
+  /* Admin table */
   .admin-users-table th:nth-child(1),
   .admin-users-table td:nth-child(1) {
     display: none;
@@ -365,9 +396,13 @@ input:focus, select:focus, textarea:focus {
   }
 
   /* Modal */
+  .modal-overlay {
+    padding: 0.75rem;
+  }
+
   .modal-card {
-    margin: 0.75rem;
     padding: 1.25rem;
+    max-height: calc(100dvh - 2rem);
   }
 
   /* form-row collapses to single column */
@@ -380,13 +415,13 @@ input:focus, select:focus, textarea:focus {
 @media (max-width: 480px) {
   .main-content {
     padding: 0.75rem;
-    padding-top: 4rem;
+    padding-top: 4.25rem;
   }
 
-  h2 { font-size: 1.4rem; }
+  h2 { font-size: 1.35rem; }
 
   .btn {
-    padding: 0.65rem 1rem;
+    padding: 0.55rem 0.9rem;
     font-size: 0.85rem;
   }
 
@@ -395,9 +430,118 @@ input:focus, select:focus, textarea:focus {
     font-size: 0.82rem;
   }
 
-  /* Hide description col on transactions table */
-  .data-table th:nth-child(3),
-  .data-table td:nth-child(3) {
-    display: none;
+  .modal-card {
+    padding: 1.1rem 0.85rem;
   }
 }
+
+/* ─── Global WhatsApp & Receipt Button Utilities ─────────────────────── */
+.btn-whatsapp {
+  background: linear-gradient(135deg, #25d366, #128c7e) !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 4px 14px rgba(37, 211, 102, 0.25);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-whatsapp:hover {
+  background: linear-gradient(135deg, #22bf5b, #0e7367) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(37, 211, 102, 0.35);
+}
+
+.receipt-btn {
+  color: #818cf8 !important;
+  background: rgba(99, 102, 241, 0.1) !important;
+  border-color: rgba(99, 102, 241, 0.25) !important;
+}
+
+.receipt-btn:hover {
+  background: rgba(99, 102, 241, 0.22) !important;
+  color: #a5b4fc !important;
+}
+
+.free-unlimited-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(99, 102, 241, 0.15));
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+  padding: 0.35rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ─── Global RTL (Right-to-Left) Localization Styles ─────────────────── */
+[dir="rtl"] {
+  text-align: right;
+}
+
+[dir="rtl"] .sidebar {
+  border-right: none;
+  border-left: 1px solid var(--glass-border);
+}
+
+[dir="rtl"] .sidebar-resizer {
+  right: auto;
+  left: 0;
+}
+
+[dir="rtl"] .sidebar-link {
+  flex-direction: row;
+}
+
+[dir="rtl"] .modal-header {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .modal-close {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+[dir="rtl"] .notification-dropdown {
+  right: auto;
+  left: 0;
+}
+
+[dir="rtl"] .form-group input,
+[dir="rtl"] .form-group select,
+[dir="rtl"] .form-group textarea {
+  text-align: right;
+}
+
+[dir="rtl"] .table th,
+[dir="rtl"] .table td {
+  text-align: right;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left !important;
+}
+
+[dir="rtl"] .rtl-mirror {
+  transform: scaleX(-1);
+}
+
+@media (max-width: 768px) {
+  [dir="rtl"] .sidebar {
+    left: auto;
+    right: 0;
+    transform: translateX(100%);
+    box-shadow: -6px 0 25px rgba(0, 0, 0, 0.25);
+  }
+  [dir="rtl"] .sidebar--open {
+    transform: translateX(0);
+  }
+}
+
+

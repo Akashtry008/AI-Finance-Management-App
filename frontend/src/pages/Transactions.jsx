@@ -1,13 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import api from '../api';
 import {
   Plus, Pencil, Trash2, X, Check, Camera,
-  ArrowUpCircle, ArrowDownCircle, Filter, Download, FileText
+  ArrowUpCircle, ArrowDownCircle, Filter, Download, FileText,
+  Receipt, Sparkles, MessageCircle, FileDown, FileSpreadsheet,
+  Car, Hash, Tag, Share2
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
-import { formatCurrency, getCurrencySymbol } from '../utils';
+import {
+  formatCurrency, getCurrencySymbol, buildWhatsAppShareUrl,
+  exportTableToExcel, formatErrorMessage
+} from '../utils';
+import { useDialog } from '../context/DialogContext';
+import InstantReceiptModal from '../components/InstantReceiptModal';
+import ExportReportModal from '../components/ExportReportModal';
+import CsvImportModal from '../components/CsvImportModal';
+import MileageCalculatorModal from '../components/MileageCalculatorModal';
 import './Transactions.css';
 
 const ITEMS_PER_PAGE = 10;
@@ -15,6 +25,25 @@ const ITEMS_PER_PAGE = 10;
 const MONTHS = [
   'January','February','March','April','May','June',
   'July','August','September','October','November','December'
+];
+
+const FALLBACK_CATEGORIES = [
+  { id: 1, name: 'Food & Dining', type: 'expense' },
+  { id: 2, name: 'Groceries', type: 'expense' },
+  { id: 3, name: 'Transportation', type: 'expense' },
+  { id: 4, name: 'Housing & Rent', type: 'expense' },
+  { id: 5, name: 'Utilities & Bills', type: 'expense' },
+  { id: 6, name: 'Entertainment & Leisure', type: 'expense' },
+  { id: 7, name: 'Shopping & Lifestyle', type: 'expense' },
+  { id: 8, name: 'Healthcare & Medical', type: 'expense' },
+  { id: 9, name: 'Education & Learning', type: 'expense' },
+  { id: 10, name: 'Travel & Vacation', type: 'expense' },
+  { id: 11, name: 'Personal Care', type: 'expense' },
+  { id: 12, name: 'Miscellaneous', type: 'expense' },
+  { id: 13, name: 'Salary & Wages', type: 'income' },
+  { id: 14, name: 'Freelance & Consulting', type: 'income' },
+  { id: 15, name: 'Investments & Dividends', type: 'income' },
+  { id: 16, name: 'Other Income', type: 'income' },
 ];
 
 function Modal({ title, onClose, children }) {
@@ -33,22 +62,33 @@ function Modal({ title, onClose, children }) {
 }
 
 export default function Transactions() {
+  const { showConfirm, showAlert } = useDialog();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [transactions, setTransactions] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
+  const displayCategories = (categories && categories.length > 0) ? categories : FALLBACK_CATEGORIES;
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editTxn, setEditTxn] = useState(null);
   const [form, setForm] = useState({
-    category_id: '', amount: '', txn_date: now.toISOString().split('T')[0], description: ''
+    category_id: '', amount: '', txn_date: now.toISOString().split('T')[0], description: '', tags: '', split_group_id: ''
   });
+  const [splitGroups, setSplitGroups] = useState([]);
+  const [showMerchantSuggestions, setShowMerchantSuggestions] = useState(false);
   const [filterType, setFilterType] = useState('all');
   const [submitting, setSubmitting] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [selectedTag, setSelectedTag] = useState(null);
+  const [showCsvModal, setShowCsvModal] = useState(false);
+  const [showMileageModal, setShowMileageModal] = useState(false);
   const fileInputRef = React.useRef(null);
 
   useEffect(() => {
@@ -57,35 +97,87 @@ export default function Transactions() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filterType, month, year]);
+  }, [filterType, selectedTag, month, year]);
 
-  const fetchAll = async () => {
+  async function fetchAll() {
     setLoading(true);
     try {
-      const [txnsRes, catsRes] = await Promise.all([
+      const [txnsRes, catsRes, groupsRes] = await Promise.all([
         api.get(`/transactions?month=${month}&year=${year}`),
-        api.get('/categories'),
+        api.get('/categories').catch(() => ({ data: [] })),
+        api.get('/split/groups').catch(() => ({ data: [] })),
       ]);
       setTransactions(txnsRes.data);
-      setCategories(catsRes.data);
+      if (catsRes.data && catsRes.data.length > 0) {
+        setCategories(catsRes.data);
+      } else {
+        setCategories(FALLBACK_CATEGORIES);
+      }
+      setSplitGroups(groupsRes.data || []);
     } catch (e) {
       console.error(e);
+      setCategories(FALLBACK_CATEGORIES);
     } finally {
       setLoading(false);
     }
   };
 
+  const merchantStats = useMemo(() => {
+    const map = {};
+    transactions.forEach(t => {
+      const desc = (t.description || '').trim();
+      if (desc && !desc.startsWith('#') && desc.length > 1) {
+        const key = desc.toLowerCase();
+        if (!map[key]) {
+          map[key] = { name: desc, count: 0, category_id: t.category_id, category_name: t.category_name, amount: t.amount };
+        }
+        map[key].count += 1;
+        map[key].category_id = t.category_id;
+        map[key].category_name = t.category_name;
+        map[key].amount = t.amount;
+      }
+    });
+    return Object.values(map).sort((a, b) => b.count - a.count);
+  }, [transactions]);
+
+  const matchedMerchants = useMemo(() => {
+    if (!form.description || form.description.length < 1) return [];
+    const q = form.description.toLowerCase().trim();
+    return merchantStats.filter(m => m.name.toLowerCase().includes(q) && m.name.toLowerCase() !== q).slice(0, 5);
+  }, [form.description, merchantStats]);
+
+  const selectMerchant = (m) => {
+    setForm(prev => ({
+      ...prev,
+      description: m.name,
+      category_id: prev.category_id || String(m.category_id),
+      amount: prev.amount ? prev.amount : String(m.amount)
+    }));
+    setShowMerchantSuggestions(false);
+  };
+
+  const addQuickTag = (tag) => {
+    const clean = tag.replace('#', '');
+    const currentTags = form.tags ? form.tags.split(',').map(s => s.trim()).filter(Boolean) : [];
+    if (!currentTags.includes(clean)) {
+      currentTags.push(clean);
+      setForm(prev => ({ ...prev, tags: currentTags.join(', ') }));
+    }
+  };
+
   const openAdd = () => {
     setEditTxn(null);
-    setForm({ category_id: '', amount: '', txn_date: now.toISOString().split('T')[0], description: '' });
+    setForm({ category_id: '', amount: '', txn_date: now.toISOString().split('T')[0], description: '', tags: '', split_group_id: '' });
     setError('');
+    setShowMerchantSuggestions(false);
     setShowModal(true);
   };
 
   const openEdit = (t) => {
     setEditTxn(t);
-    setForm({ category_id: t.category_id || '', amount: t.amount, txn_date: t.txn_date, description: t.description || '' });
+    setForm({ category_id: t.category_id || '', amount: t.amount, txn_date: t.txn_date, description: t.description || '', tags: t.tags || '', split_group_id: '' });
     setError('');
+    setShowMerchantSuggestions(false);
     setShowModal(true);
   };
 
@@ -98,17 +190,11 @@ export default function Transactions() {
     formData.append('file', file);
     
     try {
-      // Use standard fetch or api instance if it handles FormData well
-      const token = localStorage.getItem('token');
-      const res = await fetch('http://127.0.0.1:8000/transactions/scan-receipt', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` },
-        body: formData
+      const res = await api.post('/transactions/scan-receipt', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      if (!res.ok) throw new Error("Failed to scan");
-      
-      const data = await res.json();
+      const data = res.data;
       
       setForm({
         category_id: '',
@@ -119,7 +205,11 @@ export default function Transactions() {
       setShowModal(true);
       
     } catch (err) {
-      alert("Failed to scan receipt. Please ensure it's a valid image.");
+      showAlert({
+        title: 'Receipt Scan Failed',
+        message: formatErrorMessage(err, "Failed to scan receipt. Please ensure it's a valid image."),
+        type: 'danger',
+      });
     } finally {
       setScanning(false);
       e.target.value = null; // reset input
@@ -131,126 +221,215 @@ export default function Transactions() {
     setSubmitting(true);
     setError('');
     try {
-      const payload = { ...form, amount: parseFloat(form.amount), category_id: parseInt(form.category_id) };
+      const payload = {
+        amount: parseFloat(form.amount),
+        category_id: parseInt(form.category_id),
+        txn_date: form.txn_date,
+        description: form.description || '',
+        tags: form.tags || ''
+      };
       if (editTxn) {
         await api.put(`/transactions/${editTxn.id}`, payload);
+      } else if (form.split_group_id) {
+        await api.post(`/split/groups/${form.split_group_id}/expenses`, {
+          description: form.description || 'Group Expense',
+          amount: parseFloat(form.amount),
+          expense_date: form.txn_date,
+        });
       } else {
         await api.post('/transactions', payload);
       }
       setShowModal(false);
+      setForm({ category_id: '', amount: '', txn_date: now.toISOString().split('T')[0], description: '', tags: '', split_group_id: '' });
       fetchAll();
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to save transaction.');
+      setError(formatErrorMessage(err, 'Something went wrong'));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const exportCSV = () => {
+  const exportExcelTable = () => {
     if (filtered.length === 0) return;
-    const headers = ['ID', 'Type', 'Category', 'Description', 'Date', 'Amount (INR)'];
-    const rows = filtered.map(t => [
-      t.id,
-      escapeCsvValue(t.category_type),
-      escapeCsvValue(t.category_name),
-      escapeCsvValue(t.description),
-      escapeCsvValue(t.txn_date),
-      escapeCsvValue(t.amount)
-    ]);
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(r => r.join(','))
-    ].join('\r\n');
-    // Prepend UTF-8 BOM so Excel recognizes encoding
-    const blob = new Blob(['\uFEFF', csvContent], { type: 'text/csv;charset=utf-8;' });
-    downloadBlob(blob, `transactions_${MONTHS[month-1]}_${year}.csv`);
+    setExportingExcel(true);
+    try {
+      const activeCurr = localStorage.getItem('finance-os-currency') || 'INR';
+      const totalIncome = filtered.filter(t => t.category_type === 'income').reduce((s, t) => s + Number(t.amount || 0), 0);
+      const totalExpense = filtered.filter(t => t.category_type === 'expense').reduce((s, t) => s + Number(t.amount || 0), 0);
+      const netCashflow = totalIncome - totalExpense;
+
+      const secMeta = {
+        title: "1. TRANSACTION LEDGER SUMMARY",
+        headers: ["Reporting Period", "Filter Applied", "Total Records", "Active Currency"],
+        rows: [[`${MONTHS[month-1]} ${year}`, filterType.toUpperCase(), filtered.length, activeCurr]]
+      };
+
+      const secLedger = {
+        title: "2. ITEMIZED TRANSACTION REGISTER",
+        headers: ["ID", "Date", "Type", "Category", "Description", `Amount (${activeCurr})`],
+        rows: filtered.map(t => [
+          t.id,
+          t.txn_date,
+          t.category_type.toUpperCase(),
+          t.category_name,
+          t.description || '—',
+          t.amount
+        ]),
+        summary: ["TOTAL NET CASHFLOW", "—", "—", "—", `Income: +${totalIncome.toFixed(2)} | Expense: -${totalExpense.toFixed(2)}`, netCashflow]
+      };
+
+      exportTableToExcel(`FinanceOS_Transactions_${MONTHS[month-1]}_${year}`, {
+        title: `FinanceOS — Transactions Ledger (${MONTHS[month-1]} ${year})`,
+        subtitle: `Filter: ${filterType.toUpperCase()}`,
+        sections: [secMeta, secLedger],
+        activeCurr
+      });
+      setShowExportModal(false);
+    } catch (err) {
+      console.error('Excel export failed:', err);
+      showAlert({
+        title: 'Excel Export Failed',
+        message: formatErrorMessage(err),
+        type: 'danger',
+      });
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  const handleShareWhatsApp = () => {
+    const activeCurr = localStorage.getItem('finance-os-currency') || 'INR';
+    const totalIncome = filtered.filter(t => t.category_type === 'income').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const totalExpense = filtered.filter(t => t.category_type === 'expense').reduce((s, t) => s + Number(t.amount || 0), 0);
+    const netCashflow = totalIncome - totalExpense;
+
+    const text = `🧾 *FinanceOS Transactions Summary — ${MONTHS[month-1]} ${year}*
+━━━━━━━━━━━━━━━━━━━━
+📊 *Filter:* ${filterType.toUpperCase()}
+📝 *Transactions Count:* ${filtered.length}
+💵 *Total Income:* ${formatCurrency(totalIncome, activeCurr)}
+💳 *Total Expenses:* ${formatCurrency(totalExpense, activeCurr)}
+💰 *Net Cash Flow:* ${netCashflow >= 0 ? '+' : ''}${formatCurrency(netCashflow, activeCurr)}
+━━━━━━━━━━━━━━━━━━━━
+✨ Tracked with *FinanceOS* (100% Free & Unlimited Alternative to Splitwise & Mint)`;
+
+    window.open(buildWhatsAppShareUrl(text), '_blank', 'noopener,noreferrer');
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this transaction?')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Transaction',
+      message: 'Are you sure you want to delete this transaction?',
+      confirmText: 'Delete',
+      cancelText: 'Keep',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     await api.delete(`/transactions/${id}`);
     fetchAll();
   };
 
-  const downloadBlob = (blob, fileName) => {
-    try {
-      // IE / Edge fallback
-      if (window.navigator && window.navigator.msSaveOrOpenBlob) {
-        window.navigator.msSaveOrOpenBlob(blob, fileName);
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.style.display = 'none';
-      link.href = url;
-      link.download = fileName;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      if (typeof link.click === 'function') {
-        link.click();
-      } else {
-        link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-      }
-      document.body.removeChild(link);
-      setTimeout(() => URL.revokeObjectURL(url), 100);
-    } catch (err) {
-      console.error('downloadBlob error:', err);
-      alert('Download failed: ' + (err?.message || err));
-    }
-  };
+  const extractedTags = useMemo(() => {
+    const map = {};
+    transactions.forEach(t => {
+      const desc = t.description || '';
+      const tagsField = t.tags || '';
+      const combined = `${desc} ${tagsField}`;
+      const descTags = combined.match(/#[\w\d_-]+/g) || [];
+      const commaTags = tagsField.split(',').map(s => s.trim()).filter(Boolean).map(s => s.startsWith('#') ? s : `#${s}`);
+      const allTags = Array.from(new Set([...descTags, ...commaTags]));
 
-  const escapeCsvValue = (value) => {
-    const stringValue = value == null ? '' : String(value);
-    return `"${stringValue.replace(/"/g, '""')}"`;
-  };
+      allTags.forEach(rawTag => {
+        const key = rawTag.toLowerCase();
+        if (!map[key]) {
+          map[key] = { key, displayTag: rawTag, count: 0, totalExpense: 0 };
+        }
+        map[key].count += 1;
+        if (t.category_type === 'expense') {
+          map[key].totalExpense += parseFloat(t.amount) || 0;
+        }
+      });
+    });
+    return Object.values(map);
+  }, [transactions]);
 
-  const filtered = filterType === 'all'
+  let filtered = filterType === 'all'
     ? transactions
     : transactions.filter(t => t.category_type === filterType);
+
+  if (selectedTag) {
+    const cleanTag = selectedTag.replace('#', '').toLowerCase();
+    filtered = filtered.filter(t =>
+      (t.description || '').toLowerCase().includes(selectedTag.toLowerCase()) ||
+      (t.tags || '').toLowerCase().includes(cleanTag)
+    );
+  }
+
+  const bundleTotal = filtered.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
+  const bundleAvg = filtered.length > 0 ? (bundleTotal / filtered.length) : 0;
+
+  const handleShareEventBundleWhatsApp = () => {
+    const activeCurr = localStorage.getItem('finance-os-currency') || 'INR';
+    const text = `🎉 *Event Expense Bundle: ${selectedTag}*
+━━━━━━━━━━━━━━━━━━━━
+📊 *Total Spending:* ${formatCurrency(bundleTotal, activeCurr)}
+📝 *Transactions Count:* ${filtered.length}
+📈 *Average per Entry:* ${formatCurrency(bundleAvg, activeCurr)}
+📅 *Period:* ${MONTHS[month-1]} ${year}
+
+*Itemized Breakdown:*
+${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${formatCurrency(t.amount, activeCurr)} (${t.txn_date})`).join('\n')}
+
+━━━━━━━━━━━━━━━━━━━━
+✨ Tracked with *FinanceOS* (100% Free & Unlimited Personal Finance Platform)`;
+    window.open(buildWhatsAppShareUrl(text), '_blank', 'noopener,noreferrer');
+  };
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const exportPDF = () => {
     if (filtered.length === 0) return;
-    const doc = new jsPDF();
-    
-    doc.setFontSize(18);
-    doc.text("FinanceOS - Transactions Report", 14, 22);
-    
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    doc.text(`Period: ${MONTHS[month-1]} ${year} | Filter: ${filterType.toUpperCase()}`, 14, 30);
-    
-    const tableData = filtered.map(t => [
-      t.txn_date,
-      t.category_type.toUpperCase(),
-      t.category_name,
-      t.description || '—',
-      formatCurrency(t.amount)
-    ]);
-
-    autoTable(doc, {
-      startY: 36,
-      head: [['Date', 'Type', 'Category', 'Description', 'Amount']],
-      body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [99, 102, 241] },
-      alternateRowStyles: { fillColor: [250, 250, 250] },
-      styles: { fontSize: 9 }
-    });
-
+    setExportingPdf(true);
     try {
+      const doc = new jsPDF();
+      
+      doc.setFontSize(18);
+      doc.text("FinanceOS - Transactions Report", 14, 22);
+      
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`Period: ${MONTHS[month-1]} ${year} | Filter: ${filterType.toUpperCase()}`, 14, 30);
+      
+      const tableData = filtered.map(t => [
+        t.txn_date,
+        t.category_type.toUpperCase(),
+        t.category_name,
+        t.description || '—',
+        formatCurrency(t.amount)
+      ]);
+
+      autoTable(doc, {
+        startY: 36,
+        head: [['Date', 'Type', 'Category', 'Description', 'Amount']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [99, 102, 241] },
+        alternateRowStyles: { fillColor: [250, 250, 250] },
+        styles: { fontSize: 9 }
+      });
+
       doc.save(`financeos_report_${MONTHS[month-1]}_${year}.pdf`);
+      setShowExportModal(false);
     } catch (err) {
-      console.error('PDF save failed, falling back to blob download:', err);
-      try {
-        const pdfBlob = doc.output('blob');
-        downloadBlob(pdfBlob, `financeos_report_${MONTHS[month-1]}_${year}.pdf`);
-      } catch (err2) {
-        console.error('PDF blob fallback failed:', err2);
-        alert('PDF export failed: ' + (err2?.message || err2));
-      }
+      console.error('PDF save failed:', err);
+      showAlert({
+        title: 'PDF Export Failed',
+        message: formatErrorMessage(err),
+        type: 'danger',
+      });
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -264,14 +443,42 @@ export default function Transactions() {
       <div className="page-header">
         <div>
           <h2>Transactions</h2>
-          <p className="text-muted">Track your income and expenses</p>
+          <p className="text-muted">Track your income and expenses with instant digital vouchers</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={exportPDF} disabled={filtered.length === 0} title="Export PDF">
-            <FileText size={16} /> PDF
+        <div className="txn-action-buttons">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowMileageModal(true)}
+            title="Calculate distance reimbursement and auto-log travel (#Mileage)"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <Car size={15} /> Mileage
           </button>
-          <button className="btn btn-secondary" onClick={exportCSV} disabled={filtered.length === 0} title="Export CSV">
-            <Download size={16} /> CSV
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowCsvModal(true)}
+            title="Batch import Splitwise, bank, or spreadsheet CSV"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+          >
+            <FileSpreadsheet size={15} /> Import CSV
+          </button>
+          <button 
+            className="btn btn-whatsapp" 
+            onClick={handleShareWhatsApp} 
+            disabled={filtered.length === 0} 
+            title="Share Transactions Summary via WhatsApp"
+          >
+            <MessageCircle size={15} /> WhatsApp
+          </button>
+          <button 
+            className="btn btn-secondary" 
+            onClick={() => setShowExportModal(true)} 
+            disabled={filtered.length === 0} 
+            title="Export Report (PDF or Excel Table)"
+          >
+            <FileDown size={16} /> Export Report
           </button>
           <input 
             type="file" 
@@ -281,7 +488,8 @@ export default function Transactions() {
             onChange={handleFileUpload} 
           />
           <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={scanning}>
-            <Camera size={16} /> {scanning ? 'Scanning...' : 'Scan Receipt'}
+            <Camera size={16} />
+            {scanning ? 'Scanning...' : 'Scan Receipt'}
           </button>
           <button className="btn btn-primary" onClick={openAdd}>
             <Plus size={16} /> Add Transaction
@@ -311,6 +519,78 @@ export default function Transactions() {
           {filtered.length} record{filtered.length !== 1 ? 's' : ''}
         </span>
       </div>
+
+      {/* Feature 4: Hashtag & Event Expense Bundles Filter Bar */}
+      {extractedTags.length > 0 && (
+        <div className="hashtag-chips-bar glass-panel animate-fade-in">
+          <div className="hashtag-chips-label">
+            <Hash size={14} color="var(--accent-color)" />
+            <span>Event Bundles:</span>
+          </div>
+          <div className="hashtag-chips-scroll">
+            <button
+              type="button"
+              className={`hashtag-chip ${selectedTag === null ? 'active' : ''}`}
+              onClick={() => setSelectedTag(null)}
+            >
+              All
+            </button>
+            {extractedTags.map(tagObj => (
+              <button
+                key={tagObj.key}
+                type="button"
+                className={`hashtag-chip ${selectedTag === tagObj.key ? 'active' : ''}`}
+                onClick={() => setSelectedTag(selectedTag === tagObj.key ? null : tagObj.key)}
+              >
+                <span>{tagObj.displayTag}</span>
+                <span className="hashtag-chip-count">{tagObj.count}</span>
+                {tagObj.totalExpense > 0 && (
+                  <span className="hashtag-chip-total">({formatCurrency(tagObj.totalExpense)})</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Event Bundle Highlight Card */}
+      {selectedTag && (
+        <div className="event-bundle-banner glass-panel animate-fade-in">
+          <div className="bundle-banner-left">
+            <div className="bundle-tag-pill">
+              <Hash size={15} />
+              <span>{selectedTag}</span>
+            </div>
+            <div className="bundle-stats">
+              <span>Total: <strong>{formatCurrency(bundleTotal)}</strong></span>
+              <span className="bundle-stat-dot">•</span>
+              <span>Count: <strong>{filtered.length} entries</strong></span>
+              <span className="bundle-stat-dot">•</span>
+              <span>Avg: <strong>{formatCurrency(bundleAvg)}</strong></span>
+            </div>
+          </div>
+
+          <div className="bundle-banner-right">
+            <button
+              type="button"
+              className="btn btn-whatsapp btn-sm"
+              onClick={handleShareEventBundleWhatsApp}
+              title="Share event breakdown via WhatsApp"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <MessageCircle size={14} /> Share Bundle
+            </button>
+            <button
+              type="button"
+              className="bundle-close-btn"
+              onClick={() => setSelectedTag(null)}
+              title="Clear event filter"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="loading-state text-muted">Loading transactions...</div>
@@ -342,14 +622,52 @@ export default function Transactions() {
                       {t.category_type}
                     </span>
                   </td>
-                  <td>{t.category_name}</td>
-                  <td className="text-muted">{t.description || '—'}</td>
-                  <td className="text-muted">{t.txn_date}</td>
-                  <td className={t.category_type === 'income' ? 'text-success' : 'text-danger'} style={{fontWeight:600}}>
+                  <td style={{ fontWeight: 600 }}>
+                    {t.category_name || '—'}
+                  </td>
+                  <td className="text-muted txn-desc-cell">
+                    <span>{t.description || '—'}</span>
+                    {t.tags && (
+                      <div className="txn-tags-row">
+                        {t.tags.split(',').map(tag => tag.trim()).filter(Boolean).map(tag => {
+                          const display = tag.startsWith('#') ? tag : `#${tag}`;
+                          return (
+                            <span
+                              key={tag}
+                              className="txn-tag-badge"
+                              onClick={() => setSelectedTag(selectedTag === display.toLowerCase() ? null : display.toLowerCase())}
+                              title="Filter by this tag"
+                            >
+                              {display}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </td>
+                  <td className="text-muted" style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                    {t.txn_date}
+                  </td>
+                  <td className={t.category_type === 'income' ? 'text-success' : 'text-danger'} style={{fontWeight:600, whiteSpace: 'nowrap'}}>
                     {t.category_type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                   </td>
                   <td>
                     <div className="action-btns">
+                      <button
+                        className="btn btn-secondary icon-btn receipt-btn"
+                        onClick={() => setSelectedReceipt({
+                          id: t.id,
+                          type: t.category_type,
+                          category: t.category_name,
+                          description: t.description,
+                          amount: t.amount,
+                          date: t.txn_date,
+                          currency: localStorage.getItem('finance-os-currency') || 'INR'
+                        })}
+                        title="View Instant Digital Receipt & Share"
+                      >
+                        <Receipt size={14} />
+                      </button>
                       <button className="btn btn-secondary icon-btn" onClick={() => openEdit(t)} title="Edit">
                         <Pencil size={14} />
                       </button>
@@ -395,13 +713,17 @@ export default function Transactions() {
               <label>Category</label>
               <select value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})} required>
                 <option value="">Select category...</option>
-                {['income','expense'].map(type => (
-                  <optgroup key={type} label={type.charAt(0).toUpperCase() + type.slice(1)}>
-                    {categories.filter(c => c.type === type).map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </optgroup>
-                ))}
+                {['expense', 'income'].map(type => {
+                  const items = displayCategories.filter(c => (c.type || 'expense').toLowerCase() === type);
+                  if (items.length === 0) return null;
+                  return (
+                    <optgroup key={type} label={type === 'expense' ? 'Expenses' : 'Income'}>
+                      {items.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
               </select>
             </div>
             <div className="form-group">
@@ -414,11 +736,81 @@ export default function Transactions() {
               <input type="date" value={form.txn_date}
                 onChange={e => setForm({...form, txn_date: e.target.value})} required />
             </div>
-            <div className="form-group">
-              <label>Description (optional)</label>
-              <input type="text" placeholder="Add a note..."
-                value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+            <div className="form-group merchant-suggest-wrapper">
+              <label>Description / Merchant (optional)</label>
+              <input
+                type="text"
+                placeholder="e.g. Starbucks, Amazon, Groceries..."
+                value={form.description}
+                onFocus={() => setShowMerchantSuggestions(true)}
+                onChange={e => {
+                  setForm({...form, description: e.target.value});
+                  setShowMerchantSuggestions(true);
+                }}
+              />
+              {showMerchantSuggestions && matchedMerchants.length > 0 && (
+                <div className="merchant-suggestions-dropdown">
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '0.2rem 0.5rem', fontWeight: 600 }}>
+                    Recent & Frequent Merchants:
+                  </div>
+                  {matchedMerchants.map(m => (
+                    <div
+                      key={m.name}
+                      className="merchant-item"
+                      onClick={() => selectMerchant(m)}
+                    >
+                      <span style={{ fontWeight: 500 }}>{m.name}</span>
+                      <div className="merchant-item-meta">
+                        <span className="txn-tag-badge">{m.category_name || 'Auto'}</span>
+                        <span>{formatCurrency(m.amount)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+
+            <div className="form-group">
+              <label>Custom Tags (optional, comma-separated)</label>
+              <input
+                type="text"
+                placeholder="e.g. dining, trip, groceries, urgent"
+                value={form.tags}
+                onChange={e => setForm({...form, tags: e.target.value})}
+              />
+              <div className="quick-tags-container">
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', alignSelf: 'center' }}>Quick:</span>
+                {['#dining', '#groceries', '#travel', '#shopping', '#bills', '#freelance', '#personal'].map(qt => (
+                  <button
+                    key={qt}
+                    type="button"
+                    className="quick-tag-pill"
+                    onClick={() => addQuickTag(qt)}
+                  >
+                    {qt}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {splitGroups && splitGroups.length > 0 && !editTxn && (
+              <div className="form-group">
+                <label>Split with Group (Optional)</label>
+                <select
+                  value={form.split_group_id || ''}
+                  onChange={e => setForm({...form, split_group_id: e.target.value})}
+                >
+                  <option value="">None (Personal Transaction)</option>
+                  {splitGroups.map(g => (
+                    <option key={g.id} value={g.id}>👥 {g.name}</option>
+                  ))}
+                </select>
+                {form.split_group_id && (
+                  <span style={{ fontSize: '0.78rem', color: 'var(--accent-color)', marginTop: '0.25rem', display: 'block' }}>
+                    💡 This expense will be shared equally with members of {splitGroups.find(g => String(g.id) === String(form.split_group_id))?.name} and recorded in your transactions.
+                  </span>
+                )}
+              </div>
+            )}
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={submitting}>
@@ -429,6 +821,50 @@ export default function Transactions() {
           </form>
         </Modal>
       )}
+
+      {/* Instant Digital Receipt Modal */}
+      {selectedReceipt && (
+        <InstantReceiptModal
+          receipt={selectedReceipt}
+          onClose={() => setSelectedReceipt(null)}
+        />
+      )}
+
+      {/* Export Report Format Options Modal (PDF or Excel Table) */}
+      <ExportReportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Export Transactions Report"
+        subtitle={`Period: ${MONTHS[month-1]} ${year} | Filter: ${filterType.toUpperCase()}`}
+        onExportPdf={exportPDF}
+        onExportExcel={exportExcelTable}
+        onShareWhatsApp={handleShareWhatsApp}
+        loadingPdf={exportingPdf}
+        loadingExcel={exportingExcel}
+        recordCount={filtered.length}
+      />
+
+      {/* CSV Batch Importer Modal */}
+      <CsvImportModal
+        isOpen={showCsvModal}
+        onClose={() => setShowCsvModal(false)}
+        categories={categories}
+        onImportComplete={() => {
+          setShowCsvModal(false);
+          fetchAll();
+        }}
+      />
+
+      {/* Mileage & Travel Calculator Modal */}
+      <MileageCalculatorModal
+        isOpen={showMileageModal}
+        onClose={() => setShowMileageModal(false)}
+        categories={categories}
+        onExpenseLogged={() => {
+          setShowMileageModal(false);
+          fetchAll();
+        }}
+      />
     </div>
   );
 }

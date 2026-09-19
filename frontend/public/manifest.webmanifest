@@ -1,0 +1,55 @@
+{
+  "name": "FinanceOS — Free Expense Tracker & Split Engine",
+  "short_name": "FinanceOS",
+  "description": "100% Free Unlimited Expense Tracking, Receipt Scanner & Group Bill Splitting OS",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Transactions",
+      "short_name": "Expenses",
+      "description": "Log new income or expense transaction",
+      "url": "/transactions",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Split Trips",
+      "short_name": "Split",
+      "description": "Manage shared trip expenses and who pays whom",
+      "url": "/split",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Financial Dashboard",
+      "short_name": "Dashboard",
+      "description": "View monthly income, expenses, and burn rate",
+      "url": "/",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any" }]
+    }
+  ]
+}

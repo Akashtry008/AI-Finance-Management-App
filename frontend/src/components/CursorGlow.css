@@ -1,0 +1,47 @@
+/* ── Blush Cursor Ambient Background Glow ─────────────────────────── */
+
+.cursor-blush-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+
+  /* Radiant blush gradient: soft indigo, rose blush, emerald accents */
+  background: radial-gradient(
+    circle at center,
+    rgba(244, 114, 182, 0.12) 0%,
+    rgba(99, 102, 241, 0.10) 35%,
+    rgba(16, 185, 129, 0.06) 55%,
+    transparent 70%
+  );
+  filter: blur(65px);
+}
+
+.cursor-blush-glow.cursor-glow--active {
+  opacity: 1;
+}
+
+body.dark-theme .cursor-blush-glow {
+  background: radial-gradient(
+    circle at center,
+    rgba(244, 114, 182, 0.16) 0%,
+    rgba(129, 140, 248, 0.14) 35%,
+    rgba(52, 211, 153, 0.08) 55%,
+    transparent 70%
+  );
+  filter: blur(75px);
+}
+
+/* Touch devices: disable follower to save battery */
+@media (pointer: coarse) {
+  .cursor-blush-glow {
+    display: none !important;
+  }
+}

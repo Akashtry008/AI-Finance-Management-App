@@ -7,21 +7,79 @@
 .profile-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.25rem;
   margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.profile-avatar-container {
+  position: relative;
+  flex-shrink: 0;
 }
 
 .profile-avatar {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   background: var(--accent-color);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  font-weight: bold;
+  font-size: 1.65rem;
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid var(--glass-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.profile-avatar:hover {
+  transform: scale(1.04);
+  border-color: var(--accent-color);
+}
+
+.profile-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-avatar-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.profile-avatar:hover .profile-avatar-overlay {
+  opacity: 1;
+}
+
+.profile-avatar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.profile-avatar-btn {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  border-radius: 6px;
+  gap: 0.35rem;
+}
+
+.profile-avatar-btn--remove:hover {
+  color: var(--danger-color);
+  border-color: var(--danger-color);
 }
 
 .profile-content {
@@ -107,3 +165,13 @@ body:not(.dark-theme) .profile-form-group input {
   font-size: 0.85rem;
   color: var(--text-muted);
 }
+
+@media (max-width: 600px) {
+  .profile-page {
+    padding: 0.5rem 0;
+  }
+  .profile-section {
+    padding: 1.25rem 1rem;
+  }
+}
+

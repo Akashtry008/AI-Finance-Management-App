@@ -76,6 +76,32 @@ def register_user(username: str, email: str, password: str) -> bool:
             "INSERT INTO users (username, email, password_hash, is_admin) VALUES (%s, %s, %s, 0)",
             (username, email, pw_hash),
         )
+        cur.execute("SELECT LAST_INSERT_ID() as new_id")
+        row = cur.fetchone()
+        if row and row.get("new_id"):
+            u_id = row["new_id"]
+            cats = [
+                ("Food & Dining", "expense"),
+                ("Groceries", "expense"),
+                ("Transportation", "expense"),
+                ("Housing & Rent", "expense"),
+                ("Utilities & Bills", "expense"),
+                ("Entertainment & Leisure", "expense"),
+                ("Shopping & Lifestyle", "expense"),
+                ("Healthcare & Medical", "expense"),
+                ("Education & Learning", "expense"),
+                ("Travel & Vacation", "expense"),
+                ("Personal Care", "expense"),
+                ("Miscellaneous", "expense"),
+                ("Salary & Wages", "income"),
+                ("Freelance & Consulting", "income"),
+                ("Investments & Dividends", "income"),
+                ("Rental Income", "income"),
+                ("Gifts & Grants", "income"),
+                ("Other Income", "income"),
+            ]
+            for cname, ctype in cats:
+                cur.execute("INSERT IGNORE INTO categories (user_id, name, type) VALUES (%s, %s, %s)", (u_id, cname, ctype))
         return True
 
 
@@ -99,7 +125,7 @@ def login_user(username: str, password: str) -> dict | None:
 
 def get_user_by_id(user_id: int) -> dict | None:
     with get_cursor() as cur:
-        cur.execute("SELECT id, username, is_admin FROM users WHERE id = %s", (user_id,))
+        cur.execute("SELECT id, username, email, is_admin FROM users WHERE id = %s", (user_id,))
         return cur.fetchone()
 
 def generate_reset_token(email: str) -> str | None:

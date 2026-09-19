@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     category_id INT            NOT NULL,
     amount      DECIMAL(12,2)  NOT NULL,
     description VARCHAR(255)   DEFAULT NULL,
+    tags        VARCHAR(255)   DEFAULT '',
     txn_date    DATE           NOT NULL,
     created_at  DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id)     REFERENCES users(id)      ON DELETE CASCADE,
@@ -47,6 +48,7 @@ CREATE TABLE IF NOT EXISTS budgets (
     month       TINYINT        NOT NULL,
     year        SMALLINT       NOT NULL,
     amount      DECIMAL(12,2)  NOT NULL,
+    rollover    TINYINT(1)     DEFAULT 1,
     UNIQUE KEY uq_budget (user_id, category_id, month, year),
     FOREIGN KEY (user_id)     REFERENCES users(id)      ON DELETE CASCADE,
     FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
@@ -63,24 +65,26 @@ CREATE TABLE IF NOT EXISTS password_resets (
 
 -- Savings Goals
 CREATE TABLE IF NOT EXISTS savings_goals (
-    id             INT            AUTO_INCREMENT PRIMARY KEY,
-    user_id        INT            NOT NULL,
-    name           VARCHAR(100)   NOT NULL,
-    target_amount  DECIMAL(12,2)  NOT NULL,
-    current_amount DECIMAL(12,2)  NOT NULL DEFAULT 0.00,
-    deadline       DATE           DEFAULT NULL,
-    color          VARCHAR(20)    DEFAULT '#6366f1',
-    created_at     DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    id                 INT            AUTO_INCREMENT PRIMARY KEY,
+    user_id            INT            NOT NULL,
+    name               VARCHAR(100)   NOT NULL,
+    target_amount      DECIMAL(12,2)  NOT NULL,
+    current_amount     DECIMAL(12,2)  NOT NULL DEFAULT 0.00,
+    deadline           DATE           DEFAULT NULL,
+    color              VARCHAR(20)    DEFAULT '#6366f1',
+    monthly_allocation DECIMAL(12,2)  DEFAULT NULL,
+    created_at         DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Split Groups
 CREATE TABLE IF NOT EXISTS split_groups (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    owner_id    INT NOT NULL,
-    name        VARCHAR(120) NOT NULL,
-    description TEXT,
-    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    owner_id      INT NOT NULL,
+    name          VARCHAR(120) NOT NULL,
+    description   TEXT,
+    target_budget DECIMAL(12,2) DEFAULT NULL,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -91,20 +95,23 @@ CREATE TABLE IF NOT EXISTS split_group_members (
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (group_id, user_id),
     FOREIGN KEY (group_id) REFERENCES split_groups(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id)  REFERENCES users(id)  ON DELETE CASCADE
 );
 
 -- Split Expenses
 CREATE TABLE IF NOT EXISTS split_expenses (
-    id           INT AUTO_INCREMENT PRIMARY KEY,
-    group_id     INT NOT NULL,
-    paid_by      INT NOT NULL,
-    description  VARCHAR(255) NOT NULL,
-    amount       DECIMAL(12,2) NOT NULL,
-    expense_date DATE NOT NULL,
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id                INT AUTO_INCREMENT PRIMARY KEY,
+    group_id          INT NOT NULL,
+    paid_by           INT NOT NULL,
+    description       VARCHAR(255) NOT NULL,
+    amount            DECIMAL(12,2) NOT NULL,
+    expense_date      DATE NOT NULL,
+    original_currency VARCHAR(10) DEFAULT NULL,
+    original_amount   DECIMAL(12,2) DEFAULT NULL,
+    exchange_rate     DECIMAL(12,4) DEFAULT 1.0,
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (group_id) REFERENCES split_groups(id) ON DELETE CASCADE,
-    FOREIGN KEY (paid_by)  REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (paid_by)  REFERENCES users(id)  ON DELETE CASCADE
 );
 
 -- Split Participants
@@ -115,7 +122,22 @@ CREATE TABLE IF NOT EXISTS split_participants (
     settled    TINYINT(1) DEFAULT 0,
     PRIMARY KEY (expense_id, user_id),
     FOREIGN KEY (expense_id) REFERENCES split_expenses(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id)    REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE
+);
+
+-- Split Settlements
+CREATE TABLE IF NOT EXISTS split_settlements (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    group_id    INT NOT NULL,
+    payer_id    INT NOT NULL,
+    receiver_id INT NOT NULL,
+    amount      DECIMAL(12,2) NOT NULL,
+    currency    VARCHAR(10) DEFAULT 'INR',
+    settled_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    note        VARCHAR(255) DEFAULT '',
+    FOREIGN KEY (group_id)    REFERENCES split_groups(id) ON DELETE CASCADE,
+    FOREIGN KEY (payer_id)    REFERENCES users(id)        ON DELETE CASCADE,
+    FOREIGN KEY (receiver_id) REFERENCES users(id)        ON DELETE CASCADE
 );
 
 -- ============================================================

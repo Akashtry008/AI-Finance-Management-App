@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
-import { UserPlus, User, Lock, TrendingUp, Mail } from 'lucide-react';
+import { UserPlus, User, Lock, TrendingUp, Mail, Sparkles } from 'lucide-react';
 import FloatingNodes from '../components/FloatingNodes';
 import './Auth.css';
 
@@ -36,8 +36,9 @@ export default function Register() {
           <TrendingUp size={32} color="#6366f1" />
           <h1>FinanceOS</h1>
         </div>
+
         <h2>Create Account</h2>
-        <p className="text-muted">Start your financial journey today</p>
+        <p className="text-muted">Start your unrestricted financial journey today</p>
 
         {error && <div className="auth-error">{error}</div>}
         {success && <div className="auth-success">{success}</div>}

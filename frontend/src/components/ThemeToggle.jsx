@@ -59,11 +59,11 @@ export default function ThemeToggle() {
     <button className="theme-toggle-btn glass-panel" onClick={toggleTheme} title="Toggle Dark/Light Mode">
       {isDark ? (
         <>
-          <Sun size={16} className="text-warning" /> Light Mode
+          <Sun size={16} className="text-warning" /> <span className="theme-toggle-label">Light Mode</span>
         </>
       ) : (
         <>
-          <Moon size={16} className="text-primary" /> Dark Mode
+          <Moon size={16} className="text-primary" /> <span className="theme-toggle-label">Dark Mode</span>
         </>
       )}
     </button>

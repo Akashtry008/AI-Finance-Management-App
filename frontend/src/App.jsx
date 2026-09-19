@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { DialogProvider } from './context/DialogContext';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ResetPassword from './pages/ResetPassword';
@@ -45,20 +46,22 @@ export default function App() {
     <BrowserRouter>
       <ErrorBoundary>
         <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-            <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
-            <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
-            <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
-              <Route index element={<DashboardRedirect />} />
-              <Route path="transactions" element={<Transactions />} />
-              <Route path="budgets" element={<Budgets />} />
-              <Route path="split" element={<Split />} />
-              <Route path="goals" element={<Goals />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-            </Route>
-          </Routes>
+          <DialogProvider>
+            <Routes>
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+              <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+              <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+                <Route index element={<DashboardRedirect />} />
+                <Route path="transactions" element={<Transactions />} />
+                <Route path="budgets" element={<Budgets />} />
+                <Route path="split" element={<Split />} />
+                <Route path="goals" element={<Goals />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+              </Route>
+            </Routes>
+          </DialogProvider>
         </AuthProvider>
       </ErrorBoundary>
     </BrowserRouter>

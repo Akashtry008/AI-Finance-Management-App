@@ -1,5 +1,5 @@
 .goals-page {
-  padding: 1.5rem;
+  padding: 0.5rem 0;
   animation: fadeIn 0.4s ease-out;
 }
 
@@ -7,14 +7,24 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
 }
 
 .goals-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
 }
+
+@media (max-width: 600px) {
+  .goals-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
 
 .goal-card {
   padding: 1.5rem;
@@ -122,6 +132,50 @@ body:not(.dark-theme) .goal-add-funds-btn {
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* ── Paid & Completed Goal Styles ── */
+.goal-badge-paid {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #10b981;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+body.dark-theme .goal-badge-paid {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.goal-card-completed {
+  border-color: rgba(16, 185, 129, 0.35);
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08);
+}
+
+.goal-progress-fill-paid {
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.goal-paid-state {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  padding: 0.4rem 0.85rem;
+  border-radius: 6px;
+}
+
 .goal-empty-state {
   grid-column: 1 / -1;
   text-align: center;
@@ -132,3 +186,81 @@ body:not(.dark-theme) .goal-add-funds-btn {
   align-items: center;
   gap: 1rem;
 }
+
+/* ── Milestone Badges & Auto-Save Actions ── */
+.goal-milestone-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border-radius: 12px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.goal-milestone-badge.bronze {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.goal-milestone-badge.silver {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.goal-milestone-badge.gold {
+  background: rgba(234, 179, 8, 0.18);
+  color: #facc15;
+  border-color: rgba(234, 179, 8, 0.4);
+}
+
+.goal-milestone-badge.platinum {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.goal-auto-save-box {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.goal-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.goal-deposit-monthly-btn {
+  font-size: 0.82rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  color: #a5b4fc;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.goal-deposit-monthly-btn:hover {
+  background: rgba(99, 102, 241, 0.25);
+  color: white;
+  border-color: #818cf8;
+}
+

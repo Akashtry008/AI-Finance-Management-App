@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
-import { Users, Activity, Trash2, Calendar } from 'lucide-react';
+import { Users, Activity, Trash2, Calendar, ShieldCheck, Server, CheckCircle2, Globe, Lock } from 'lucide-react';
+import { useDialog } from '../context/DialogContext';
+import { formatErrorMessage } from '../utils';
 import './AdminDashboard.css';
 
 export default function AdminDashboard() {
+  const { showConfirm, showAlert } = useDialog();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -33,7 +36,14 @@ export default function AdminDashboard() {
   }, [month, year]);
 
   const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user? All their data will be lost.')) return;
+    const confirmed = await showConfirm({
+      title: 'Delete Platform User',
+      message: 'Are you sure you want to delete this user? All their financial records and data will be permanently lost.',
+      confirmText: 'Delete User',
+      cancelText: 'Cancel',
+      isDanger: true,
+    });
+    if (!confirmed) return;
     try {
       await api.delete(`/admin/users/${userId}`);
       setUsers(users.filter(u => u.id !== userId));
@@ -42,7 +52,11 @@ export default function AdminDashboard() {
       setStats(statsRes.data);
     } catch (err) {
       console.error('Failed to delete user:', err);
-      alert('Failed to delete user.');
+      showAlert({
+        title: 'Delete Failed',
+        message: formatErrorMessage(err, 'Failed to delete user.'),
+        type: 'danger',
+      });
     }
   };
 
@@ -98,6 +112,51 @@ export default function AdminDashboard() {
           <div className="stat-details">
             <span className="stat-label">Total Volume</span>
             <span className="stat-value">${stats.total_volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+        </div>
+
+        <div className="stat-card glass-panel">
+          <div className="stat-icon" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>
+            <ShieldCheck size={24} />
+          </div>
+          <div className="stat-details">
+            <span className="stat-label">System Security</span>
+            <span className="stat-value" style={{ fontSize: '1.2rem', color: '#10b981' }}>Active (3 Modes)</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Real-time System Controls & Governance */}
+      <div className="admin-governance-card glass-panel" style={{ padding: '1.25rem 1.5rem', marginBottom: '1.5rem', borderRadius: '16px' }}>
+        <h2 className="section-title" style={{ fontSize: '1.05rem', margin: '0 0 0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Server size={18} color="#818cf8" /> Platform Security & System Governance
+        </h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+          <div style={{ padding: '0.75rem 1rem', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.86rem', color: '#10b981' }}>
+              <CheckCircle2 size={16} /> Privacy Lock Shield
+            </div>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              PIN, Password & 3×3 Pattern Lock enabled system-wide.
+            </p>
+          </div>
+
+          <div style={{ padding: '0.75rem 1rem', borderRadius: '10px', background: 'rgba(99, 102, 241, 0.08)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.86rem', color: '#818cf8' }}>
+              <Globe size={16} /> Live Exchange Rates
+            </div>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Real-time multi-currency engine connected and synchronized.
+            </p>
+          </div>
+
+          <div style={{ padding: '0.75rem 1rem', borderRadius: '10px', background: 'rgba(251, 191, 36, 0.08)', border: '1px solid rgba(251, 191, 36, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.86rem', color: '#fbbf24' }}>
+              <Lock size={16} /> Audit Receipt Vouchers
+            </div>
+            <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Single-page thermal voucher generator with QR stamp verified.
+            </p>
           </div>
         </div>
       </div>

@@ -1,0 +1,287 @@
+/* ─── Export Report Modal Styling ────────────────────────────────────── */
+
+.export-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 1rem;
+  animation: exportFadeIn 0.2s ease-out;
+}
+
+body.dark-theme .export-modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+@keyframes exportFadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.export-modal-card {
+  max-width: 560px;
+  width: 95%;
+  max-height: calc(100vh - 2.5rem);
+  background: var(--bg-secondary, #ffffff);
+  color: var(--text-color, #0f172a);
+  border-radius: 16px;
+  border: 1px solid var(--glass-border, #e2e8f0);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+body.dark-theme .export-modal-card {
+  background: var(--bg-secondary, #161822);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.export-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--glass-border, #e2e8f0);
+  flex-shrink: 0;
+}
+
+body.dark-theme .export-modal-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.export-modal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-primary, #0f172a);
+}
+
+body.dark-theme .export-modal-title {
+  color: #f8fafc;
+}
+
+.export-modal-subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #64748b);
+}
+
+.export-modal-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 6px;
+  transition: color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.export-modal-close:hover {
+  color: #ef4444;
+}
+
+.export-options-grid {
+  padding: 0.9rem 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  overflow-y: auto;
+  max-height: 100%;
+}
+
+.export-option-card {
+  background: var(--bg-primary, #f8fafc);
+  border: 1px solid var(--glass-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 0.95rem 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.6rem;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+body.dark-theme .export-option-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.export-option-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12);
+}
+
+body.dark-theme .export-option-card:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.35);
+}
+
+.export-option-card.pdf-option:hover {
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.export-option-card.excel-option:hover {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.export-option-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.4rem;
+}
+
+.pdf-icon-bg {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(129, 140, 248, 0.1));
+  color: #6366f1;
+}
+
+.excel-icon-bg {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(52, 211, 153, 0.1));
+  color: #10b981;
+}
+
+.export-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 20px;
+  margin-bottom: 0.35rem;
+}
+
+.badge-pdf {
+  background: rgba(99, 102, 241, 0.12);
+  color: #4338ca;
+}
+
+body.dark-theme .badge-pdf {
+  background: rgba(99, 102, 241, 0.15);
+  color: #a5b4fc;
+}
+
+.badge-excel {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+}
+
+body.dark-theme .badge-excel {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+.export-card-title {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.export-card-desc {
+  font-size: 0.76rem;
+  color: var(--text-muted, #94a3b8);
+  margin: 0 0 0.5rem;
+  line-height: 1.35;
+}
+
+.export-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.export-features-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.export-features-list li svg {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.export-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  padding: 0.52rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.export-btn-pdf {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #ffffff;
+}
+
+.export-btn-pdf:hover:not(:disabled) {
+  background: linear-gradient(135deg, #4f46e5, #4338ca);
+}
+
+.export-btn-excel {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+}
+
+.export-btn-excel:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669, #047857);
+}
+
+.export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-modal-footer {
+  padding: 0.65rem 1.25rem;
+  border-top: 1px solid var(--glass-border, #e2e8f0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-secondary, #ffffff);
+  flex-shrink: 0;
+}
+
+body.dark-theme .export-modal-footer {
+  border-top-color: rgba(255, 255, 255, 0.1);
+  background: var(--bg-secondary, #161822);
+}
+
+@media (max-width: 580px) {
+  .export-options-grid {
+    grid-template-columns: 1fr;
+    max-height: 60vh;
+  }
+}
+

@@ -1,12 +1,16 @@
+import asyncio
 import datetime
 import os
 from contextlib import asynccontextmanager
 from datetime import date
 from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
+from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import jwt
+import json
+from typing import Optional, List, Dict, Any
 
 from auth import (
     register_user,
@@ -25,8 +29,13 @@ from services import (
     list_transactions,
     monthly_report,
     yearly_report,
+    range_report,
+    period_comparison,
+    year_in_review,
     set_budget,
     get_budget_status,
+    get_all_budgets_status,
+    get_user_pending_split_debt,
     admin_system_stats,
     admin_list_users,
     admin_delete_user,
@@ -36,19 +45,34 @@ from services import (
     list_split_groups,
     add_group_member,
     get_group_members,
+    get_candidate_members,
+    remove_group_member,
     add_split_expense,
     list_split_expenses,
     get_group_balances,
     settle_participant,
+    unsettle_participant,
+    toggle_participant_settle,
+    get_group_settlement_plan,
+    record_settlement,
+    list_settlements,
     delete_split_group,
     list_goals,
     create_goal,
     add_funds_to_goal,
     delete_goal,
     get_user_notifications,
+    export_full_account_data,
+    restore_full_account_data,
+    list_recurring_bills,
+    add_recurring_bill,
+    delete_recurring_bill,
+    mark_recurring_bill_paid,
+    generate_ai_financial_response,
+    compute_financial_health_index,
 )
 
-SECRET_KEY = "super-secret-key-for-local-dev-change-me"
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "super-secret-key-for-local-dev-change-me")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
@@ -59,6 +83,74 @@ async def lifespan(app: FastAPI):
     try:
         from db import get_cursor
         with get_cursor(commit=True) as cur:
+            # 1. Ensure core base tables exist (prevents crash on fresh cloud DBs)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id            INT            AUTO_INCREMENT PRIMARY KEY,
+                    username      VARCHAR(50)    NOT NULL UNIQUE,
+                    email         VARCHAR(120)   UNIQUE,
+                    display_name  VARCHAR(100),
+                    theme         VARCHAR(20)    DEFAULT 'dark',
+                    currency      VARCHAR(10)    DEFAULT 'INR',
+                    password_hash VARCHAR(255)   NOT NULL,
+                    is_admin      TINYINT(1)     NOT NULL DEFAULT 0,
+                    created_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB;
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS categories (
+                    id      INT          AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT          NOT NULL,
+                    name    VARCHAR(100) NOT NULL,
+                    type    ENUM('income','expense') NOT NULL,
+                    UNIQUE KEY uq_user_category (user_id, name),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB;
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS transactions (
+                    id          INT            AUTO_INCREMENT PRIMARY KEY,
+                    user_id     INT            NOT NULL,
+                    category_id INT            NOT NULL,
+                    amount      DECIMAL(12,2)  NOT NULL,
+                    description VARCHAR(255)   DEFAULT NULL,
+                    tags        VARCHAR(255)   DEFAULT '',
+                    txn_date    DATE           NOT NULL,
+                    created_at  DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id)     REFERENCES users(id)      ON DELETE CASCADE,
+                    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
+                ) ENGINE=InnoDB;
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS budgets (
+                    id          INT            AUTO_INCREMENT PRIMARY KEY,
+                    user_id     INT            NOT NULL,
+                    category_id INT            NOT NULL,
+                    month       TINYINT        NOT NULL,
+                    year        SMALLINT       NOT NULL,
+                    amount      DECIMAL(12,2)  NOT NULL,
+                    rollover    TINYINT(1)     DEFAULT 1,
+                    UNIQUE KEY uq_budget (user_id, category_id, month, year),
+                    FOREIGN KEY (user_id)     REFERENCES users(id)      ON DELETE CASCADE,
+                    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB;
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS recurring_bills (
+                    id                 VARCHAR(64)    PRIMARY KEY,
+                    user_id            INT            NOT NULL,
+                    name               VARCHAR(120)   NOT NULL,
+                    amount             DECIMAL(12,2)  NOT NULL,
+                    day                INT            NOT NULL DEFAULT 1,
+                    category           VARCHAR(60)    DEFAULT 'Utilities',
+                    cycle              VARCHAR(40)    DEFAULT 'Monthly',
+                    last_paid_month    VARCHAR(20)    DEFAULT '',
+                    created_at         TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB;
+            """)
+
+            # 2. Incremental column migrations (backward-compatible)
             try:
                 cur.execute("ALTER TABLE users ADD COLUMN email VARCHAR(120) UNIQUE")
             except Exception:
@@ -75,6 +167,34 @@ async def lifespan(app: FastAPI):
                 cur.execute("ALTER TABLE users ADD COLUMN currency VARCHAR(10) DEFAULT 'INR'")
             except Exception:
                 pass
+            try:
+                cur.execute("ALTER TABLE transactions ADD COLUMN tags VARCHAR(255) DEFAULT ''")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE budgets ADD COLUMN rollover TINYINT(1) DEFAULT 1")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE split_groups ADD COLUMN target_budget DECIMAL(12,2) DEFAULT NULL")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE split_expenses ADD COLUMN original_currency VARCHAR(10) DEFAULT NULL")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE split_expenses ADD COLUMN original_amount DECIMAL(12,2) DEFAULT NULL")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE split_expenses ADD COLUMN exchange_rate DECIMAL(12,4) DEFAULT 1.0")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE savings_goals ADD COLUMN monthly_allocation DECIMAL(12,2) DEFAULT NULL")
+            except Exception:
+                pass
 
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS password_resets (
@@ -87,14 +207,15 @@ async def lifespan(app: FastAPI):
             """)
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS savings_goals (
-                    id             INT            AUTO_INCREMENT PRIMARY KEY,
-                    user_id        INT            NOT NULL,
-                    name           VARCHAR(100)   NOT NULL,
-                    target_amount  DECIMAL(12,2)  NOT NULL,
-                    current_amount DECIMAL(12,2)  NOT NULL DEFAULT 0.00,
-                    deadline       DATE           DEFAULT NULL,
-                    color          VARCHAR(20)    DEFAULT '#6366f1',
-                    created_at     DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    id                 INT            AUTO_INCREMENT PRIMARY KEY,
+                    user_id            INT            NOT NULL,
+                    name               VARCHAR(100)   NOT NULL,
+                    target_amount      DECIMAL(12,2)  NOT NULL,
+                    current_amount     DECIMAL(12,2)  NOT NULL DEFAULT 0.00,
+                    deadline           DATE           DEFAULT NULL,
+                    color              VARCHAR(20)    DEFAULT '#6366f1',
+                    monthly_allocation DECIMAL(12,2)  DEFAULT NULL,
+                    created_at         DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 ) ENGINE=InnoDB;
             """)
@@ -104,6 +225,7 @@ async def lifespan(app: FastAPI):
                     owner_id INT NOT NULL,
                     name VARCHAR(120) NOT NULL,
                     description TEXT,
+                    target_budget DECIMAL(12,2) DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
                 )
@@ -126,6 +248,9 @@ async def lifespan(app: FastAPI):
                     description VARCHAR(255) NOT NULL,
                     amount DECIMAL(12,2) NOT NULL,
                     expense_date DATE NOT NULL,
+                    original_currency VARCHAR(10) DEFAULT NULL,
+                    original_amount DECIMAL(12,2) DEFAULT NULL,
+                    exchange_rate DECIMAL(12,4) DEFAULT 1.0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (group_id) REFERENCES split_groups(id) ON DELETE CASCADE,
                     FOREIGN KEY (paid_by) REFERENCES users(id) ON DELETE CASCADE
@@ -140,6 +265,21 @@ async def lifespan(app: FastAPI):
                     PRIMARY KEY (expense_id, user_id),
                     FOREIGN KEY (expense_id) REFERENCES split_expenses(id) ON DELETE CASCADE,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS split_settlements (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    group_id INT NOT NULL,
+                    payer_id INT NOT NULL,
+                    receiver_id INT NOT NULL,
+                    amount DECIMAL(12,2) NOT NULL,
+                    currency VARCHAR(10) DEFAULT 'INR',
+                    settled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    note VARCHAR(255) DEFAULT '',
+                    FOREIGN KEY (group_id) REFERENCES split_groups(id) ON DELETE CASCADE,
+                    FOREIGN KEY (payer_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (receiver_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             """)
         print("[startup] Tables ready.")
@@ -199,6 +339,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "message": "AI Finance Management API is running!",
+        "docs": "http://127.0.0.1:8000/docs",
+        "health": "http://127.0.0.1:8000/health",
+        "version": "1.0.0"
+    }
+
+
+@app.get("/health")
+def health_check():
+    return {"status": "healthy"}
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -289,6 +446,31 @@ def reset_password(req: ResetPasswordReq):
     raise HTTPException(status_code=400, detail="Invalid or expired token")
 
 
+class SecurityLockResetReq(BaseModel):
+    email: str
+
+@app.post("/auth/security-lock/reset-verify")
+def verify_security_lock_reset(req: SecurityLockResetReq, user_id: int = Depends(get_current_user)):
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    reg_email = (user.get("email") or "").strip().lower()
+    input_email = req.email.strip().lower()
+
+    if not reg_email or input_email != reg_email:
+        raise HTTPException(
+            status_code=400,
+            detail="The entered email does not match your registered account email."
+        )
+
+    return {
+        "success": True,
+        "msg": "Email verified! You may now unlock and reset your security credentials.",
+        "email": reg_email
+    }
+
+
 # ── Categories ───────────────────────────────────────────────────────────────
 
 @app.get("/categories")
@@ -367,6 +549,7 @@ class TransactionCreate(BaseModel):
     amount: float
     txn_date: str       # YYYY-MM-DD
     description: str = None
+    tags: str = ""
 
 
 @app.post("/transactions")
@@ -375,7 +558,7 @@ def create_transaction(txn: TransactionCreate, user_id: int = Depends(get_curren
         d = datetime.datetime.strptime(txn.txn_date, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-    add_transaction(user_id, txn.category_id, txn.amount, d, txn.description)
+    add_transaction(user_id, txn.category_id, txn.amount, d, txn.description, txn.tags)
     return {"msg": "Transaction added"}
 
 
@@ -385,7 +568,7 @@ def update_txn(txn_id: int, txn: TransactionCreate, user_id: int = Depends(get_c
         d = datetime.datetime.strptime(txn.txn_date, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
-    success = update_transaction(user_id, txn_id, txn.category_id, txn.amount, d, txn.description)
+    success = update_transaction(user_id, txn_id, txn.category_id, txn.amount, d, txn.description, txn.tags)
     if not success:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return {"msg": "Transaction updated"}
@@ -401,8 +584,12 @@ def delete_txn(txn_id: int, user_id: int = Depends(get_current_user)):
 
 @app.get("/transactions")
 def get_transactions(month: int = None, year: int = None,
+                     start_date: str = None, end_date: str = None,
+                     tag: str = None,
                      user_id: int = Depends(get_current_user)):
-    return list_transactions(user_id, month, year)
+    return list_transactions(user_id, month=month, year=year,
+                             start_date=start_date, end_date=end_date,
+                             tag=tag)
 
 
 # ── Reports ──────────────────────────────────────────────────────────────────
@@ -415,6 +602,21 @@ def get_monthly_report(month: int, year: int, user_id: int = Depends(get_current
 @app.get("/reports/yearly")
 def get_yearly_report(year: int, user_id: int = Depends(get_current_user)):
     return yearly_report(user_id, year)
+
+
+@app.get("/reports/range")
+def get_range_report(start_date: str, end_date: str, user_id: int = Depends(get_current_user)):
+    return range_report(user_id, start_date, end_date)
+
+
+@app.get("/reports/comparison")
+def get_period_comparison(month: int, year: int, user_id: int = Depends(get_current_user)):
+    return period_comparison(user_id, month, year)
+
+
+@app.get("/reports/wrapped")
+def get_year_wrapped(year: int, user_id: int = Depends(get_current_user)):
+    return year_in_review(user_id, year)
 
 
 # ── Budgets ──────────────────────────────────────────────────────────────────
@@ -438,6 +640,11 @@ def check_budget(category_id: int, month: int, year: int,
     return get_budget_status(user_id, category_id, month, year)
 
 
+@app.get("/budgets/summary")
+def get_budgets_summary(month: int, year: int, user_id: int = Depends(get_current_user)):
+    return get_all_budgets_status(user_id, month, year)
+
+
 # ── Admin ────────────────────────────────────────────────────────────────────
 
 @app.get("/admin/stats")
@@ -456,11 +663,6 @@ def delete_user(target_user_id: int, admin_id: int = Depends(get_current_admin))
     return {"msg": "User deleted"}
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)
-
-
 # ── Charts ───────────────────────────────────────────────────────────────────
 
 @app.get("/reports/category-breakdown")
@@ -477,27 +679,38 @@ def get_monthly_trend(year: int, user_id: int = Depends(get_current_user)):
 
 class SplitGroupCreate(BaseModel):
     name: str
-    description: str = None
+    description: Optional[str] = None
+    target_budget: Optional[float] = None
 
 class AddMember(BaseModel):
     username: str
 
 class SplitExpenseCreate(BaseModel):
-    paid_by: int
+    paid_by: Optional[int] = None
     description: str
     amount: float
     expense_date: str
-    split_with: list[int]
+    split_with: Optional[list[int]] = None
+    custom_shares: Optional[dict[str, float]] = None
+    original_currency: Optional[str] = None
+    original_amount: Optional[float] = None
+    exchange_rate: Optional[float] = 1.0
 
 class SettleReq(BaseModel):
     user_id: int
 
+class SettlementCreate(BaseModel):
+    payer_id: int
+    receiver_id: int
+    amount: float
+    currency: str = "INR"
+    note: str = ""
+
 
 @app.post("/split/groups")
 def create_group(data: SplitGroupCreate, user_id: int = Depends(get_current_user)):
-    gid = create_split_group(user_id, data.name, data.description)
+    gid = create_split_group(user_id, data.name, data.description, data.target_budget)
     # auto-add creator as member
-    add_group_member(gid, None)
     from db import get_cursor
     with get_cursor(commit=True) as cur:
         cur.execute("INSERT IGNORE INTO split_group_members (group_id, user_id) VALUES (%s,%s)", (gid, user_id))
@@ -520,7 +733,7 @@ def remove_group(group_id: int, user_id: int = Depends(get_current_user)):
 def add_member(group_id: int, data: AddMember, user_id: int = Depends(get_current_user)):
     result = add_group_member(group_id, data.username)
     if "error" in result:
-        raise HTTPException(status_code=404, detail=result["error"])
+        raise HTTPException(status_code=400, detail=result["error"])
     return result
 
 
@@ -529,10 +742,33 @@ def get_members(group_id: int, user_id: int = Depends(get_current_user)):
     return get_group_members(group_id)
 
 
+@app.get("/split/groups/{group_id}/candidate-members")
+def get_candidates(group_id: int, user_id: int = Depends(get_current_user)):
+    return get_candidate_members(group_id)
+
+
+@app.delete("/split/groups/{group_id}/members/{member_id}")
+def delete_member(group_id: int, member_id: int, user_id: int = Depends(get_current_user)):
+    result = remove_group_member(group_id, member_id)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
 @app.post("/split/groups/{group_id}/expenses")
 def add_expense(group_id: int, data: SplitExpenseCreate, user_id: int = Depends(get_current_user)):
-    eid = add_split_expense(group_id, data.paid_by, data.description,
-                             data.amount, data.expense_date, data.split_with)
+    paid_by = data.paid_by if data.paid_by is not None else user_id
+    split_with = data.split_with
+    if not split_with:
+        from services import get_group_members
+        members = get_group_members(group_id)
+        split_with = [m["id"] for m in members]
+        if not split_with:
+            split_with = [paid_by]
+    eid = add_split_expense(group_id, paid_by, data.description,
+                             data.amount, data.expense_date, split_with,
+                             data.custom_shares,
+                             data.original_currency, data.original_amount, data.exchange_rate)
     return {"id": eid, "msg": "Expense added"}
 
 
@@ -552,6 +788,41 @@ def settle(expense_id: int, data: SettleReq, user_id: int = Depends(get_current_
     return {"msg": "Settled"}
 
 
+@app.post("/split/expenses/{expense_id}/unsettle")
+def unsettle(expense_id: int, data: SettleReq, user_id: int = Depends(get_current_user)):
+    unsettle_participant(expense_id, data.user_id)
+    return {"msg": "Unsettled"}
+
+
+@app.post("/split/expenses/{expense_id}/toggle-settle")
+def toggle_settle(expense_id: int, data: SettleReq, user_id: int = Depends(get_current_user)):
+    res = toggle_participant_settle(expense_id, data.user_id)
+    if "error" in res:
+        raise HTTPException(status_code=404, detail=res["error"])
+    return res
+
+
+@app.get("/split/groups/{group_id}/settlement-plan")
+def settlement_plan(group_id: int, user_id: int = Depends(get_current_user)):
+    return get_group_settlement_plan(group_id)
+
+
+@app.post("/split/groups/{group_id}/settlements")
+def create_settlement(group_id: int, data: SettlementCreate, user_id: int = Depends(get_current_user)):
+    sid = record_settlement(group_id, data.payer_id, data.receiver_id, data.amount, data.currency, data.note)
+    return {"id": sid, "msg": "Settlement recorded"}
+
+
+@app.get("/split/groups/{group_id}/settlements")
+def get_settlements(group_id: int, user_id: int = Depends(get_current_user)):
+    return list_settlements(group_id)
+
+
+@app.get("/split/debt-summary")
+def get_debt_summary(user_id: int = Depends(get_current_user)):
+    return {"pending_group_debt": get_user_pending_split_debt(user_id)}
+
+
 # ── Savings Goals ─────────────────────────────────────────────────────────────
 
 class GoalCreate(BaseModel):
@@ -559,6 +830,7 @@ class GoalCreate(BaseModel):
     target_amount: float
     color: str = "#6366f1"
     deadline: date = None
+    monthly_allocation: float = None
 
 class GoalAddFunds(BaseModel):
     amount: float
@@ -569,7 +841,7 @@ def get_all_goals(user_id: int = Depends(get_current_user)):
 
 @app.post("/goals")
 def new_goal(data: GoalCreate, user_id: int = Depends(get_current_user)):
-    gid = create_goal(user_id, data.name, data.target_amount, data.color, data.deadline)
+    gid = create_goal(user_id, data.name, data.target_amount, data.color, data.deadline, data.monthly_allocation)
     return {"id": gid, "msg": "Goal created"}
 
 @app.put("/goals/{goal_id}/add")
@@ -660,119 +932,433 @@ def update_password(data: PasswordUpdate, user_id: int = Depends(get_current_use
     return {"msg": "Password updated successfully"}
 
 
+class RestoreDataReq(BaseModel):
+    data: dict
+
+@app.get("/profile/backup")
+def get_profile_backup(month: int = None, year: int = None, user_id: int = Depends(get_current_user)):
+    return export_full_account_data(user_id, month=month, year=year)
+
+@app.post("/profile/restore")
+def restore_profile_backup(req: RestoreDataReq, user_id: int = Depends(get_current_user)):
+    result = restore_full_account_data(user_id, req.data)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
 # ── AI Financial Assistant ───────────────────────────────────────────────────
 
 class ChatMessageReq(BaseModel):
     message: str
 
+
+def build_financial_llm_prompt(context_data: dict, user_question: str) -> str:
+    user_info = context_data["user"]
+    curr = user_info.get("currency", "INR")
+    name = user_info.get("display_name") or user_info.get("username", "User")
+    today = context_data["date"]
+    cf = context_data["curr_month_cashflow"]
+    prev_cf = context_data["prev_month_cashflow"]
+
+    lines = [
+        "You are FinanceOS AI, an intelligent, empathetic, and precision-focused personal financial assistant.",
+        f"You are providing personalized guidance for {name}.",
+        f"Preferred Currency: {curr}. Today's Date: {today}.",
+        "",
+        "=== REAL-TIME USER FINANCIAL CONTEXT ===",
+        f"1. Current Month Cashflow ({today[:7]}):",
+        f"   - Total Income: {curr} {cf['income']:.2f}",
+        f"   - Total Expenses: {curr} {cf['expenses']:.2f}",
+        f"   - Net Cashflow (Savings): {curr} {cf['net_savings']:.2f}",
+        f"   - Savings Rate: {cf['savings_rate_pct']}%",
+        f"2. Previous Month Comparison:",
+        f"   - Previous Month Income: {curr} {prev_cf['income']:.2f}",
+        f"   - Previous Month Expenses: {curr} {prev_cf['expenses']:.2f}",
+        "",
+        "3. Spending by Category This Month:"
+    ]
+
+    if context_data["category_breakdown"]:
+        for c in context_data["category_breakdown"]:
+            lines.append(f"   - {c['category']}: {curr} {c['spent']:.2f} ({c['percentage']}% of total expenses)")
+    else:
+        lines.append("   - No expenses recorded yet this month.")
+
+    lines.append("\n4. Active Category Budgets:")
+    if context_data["budgets"]:
+        for b in context_data["budgets"]:
+            lines.append(
+                f"   - {b['category']}: Limit {curr} {b['limit']:.2f} | Spent {curr} {b['spent']:.2f} | "
+                f"Remaining {curr} {b['remaining']:.2f} ({b['utilized_pct']}% used) [Status: {b['status'].upper()}]"
+            )
+    else:
+        lines.append("   - No category budgets configured for this month.")
+
+    lines.append("\n5. Savings Goals:")
+    if context_data["goals"]:
+        for g in context_data["goals"]:
+            deadline_info = f"Deadline: {g['deadline']} ({g['days_left']} days left)" if g["deadline"] else "No deadline set"
+            lines.append(
+                f"   - Goal '{g['name']}': Saved {curr} {g['saved']:.2f} / Target {curr} {g['target']:.2f} "
+                f"({g['pct_complete']}% complete, remaining: {curr} {g['remaining_to_save']:.2f}) | {deadline_info}"
+            )
+    else:
+        lines.append("   - No active savings goals.")
+
+    lines.append("\n6. Group Split Expenses & Social Debts:")
+    debts = context_data["split_debts"]
+    lines.append(f"   - Overall Net Balance across split groups: {curr} {debts['net_split_balance']:.2f}")
+    if debts["owed_to_user"]:
+        lines.append(f"   - Money Friends Owe {name}: Total {curr} {debts['total_owed_to_user']:.2f}")
+        for item in debts["owed_to_user"]:
+            lines.append(f"     * {item['friend']} owes {curr} {item['amount']:.2f} in group '{item['group']}'")
+    else:
+        lines.append(f"   - Nobody owes {name} money in split groups.")
+
+    if debts["user_owes"]:
+        lines.append(f"   - Money {name} Owes to Friends: Total {curr} {debts['total_user_owes']:.2f}")
+        for item in debts["user_owes"]:
+            lines.append(f"     * Owes {item['friend']} {curr} {item['amount']:.2f} in group '{item['group']}'")
+    else:
+        lines.append(f"   - {name} does not owe any money in split groups.")
+
+    lines.append("\n7. Recent Transactions (Last 30):")
+    if context_data["recent_transactions"]:
+        for t in context_data["recent_transactions"][:25]:
+            desc = f" - '{t['description']}'" if t["description"] else ""
+            lines.append(f"   - [{t['date']}] {t['type'].upper()}: {curr} {t['amount']:.2f} in '{t['category']}'{desc}")
+    else:
+        lines.append("   - No transactions recorded.")
+
+    lines.extend([
+        "",
+        "=== INSTRUCTIONS FOR THE ASSISTANT ===",
+        "- Answer the user's question directly, accurately, and concisely using the provided context.",
+        "- Always format monetary values with the user's currency symbol and bold key numbers.",
+        "- Use markdown bullet points and clean structure for readability.",
+        "- If asked for advice, ground your recommendations on their actual numbers (e.g., top spending categories, budget capacity).",
+        "- Keep answers helpful and under 4-5 sentences unless detailed breakdown is explicitly requested.",
+        "",
+        f"User Question: {user_question}"
+    ])
+    return "\n".join(lines)
+
+
+def generate_fallback_response(context_data: dict, user_question: str) -> str:
+    msg = user_question.lower()
+    cf = context_data["curr_month_cashflow"]
+    curr = context_data["user"].get("currency", "INR")
+    budgets = context_data["budgets"]
+    goals = context_data["goals"]
+    debts = context_data["split_debts"]
+    cats = context_data["category_breakdown"]
+
+    if any(w in msg for w in ["budget", "over budget", "limit", "exceed"]):
+        if not budgets:
+            return "You haven't set any budgets for this month yet. Head to the Budgets page to set spending limits!"
+        exceeded = [b for b in budgets if b["status"] == "exceeded"]
+        warning = [b for b in budgets if b["status"] == "warning"]
+        parts = ["Here is your budget health check for this month:"]
+        if exceeded:
+            parts.append("⚠️ **Exceeded Budgets**:\n" + "\n".join([f"• **{b['category']}**: Spent {curr} {b['spent']:.2f} of {curr} {b['limit']:.2f} ({b['utilized_pct']}%)" for b in exceeded]))
+        if warning:
+            parts.append("🔔 **Near Limit (>80%)**:\n" + "\n".join([f"• **{b['category']}**: Spent {curr} {b['spent']:.2f} of {curr} {b['limit']:.2f} ({b['utilized_pct']}%)" for b in warning]))
+        if not exceeded and not warning:
+            parts.append("✅ **All budgets are in a healthy range!** You are well within your configured limits.")
+        total_budget_spent = sum(b['spent'] for b in budgets)
+        total_budget_limit = sum(b['limit'] for b in budgets)
+        parts.append(f"📊 Total budgeted spending: **{curr} {total_budget_spent:.2f}** out of **{curr} {total_budget_limit:.2f}**.")
+        return "\n\n".join(parts)
+
+    elif any(w in msg for w in ["spent", "expense", "spend", "summary", "month", "cashflow"]):
+        top_cat = f", with the highest spend in **{cats[0]['category']}** ({curr} {cats[0]['spent']:.2f})" if cats else ""
+        return (
+            f"📊 **Monthly Spending Overview** ({context_data['date'][:7]}):\n\n"
+            f"• **Total Expenses**: **{curr} {cf['expenses']:.2f}**{top_cat}\n"
+            f"• **Total Income**: **{curr} {cf['income']:.2f}**\n"
+            f"• **Net Savings**: **{curr} {cf['net_savings']:.2f}** (Savings Rate: **{cf['savings_rate_pct']}%**)\n"
+            f"• **Recent Transactions Logged**: {len(context_data['recent_transactions'])}"
+        )
+
+    elif any(w in msg for w in ["goal", "save", "saving", "target"]):
+        if not goals:
+            return "You don't have any active savings goals set up yet. Head to the Savings Goals page to set your first target!"
+        goal_strs = [
+            f"• **{g['name']}**: Saved **{curr} {g['saved']:.2f}** of **{curr} {g['target']:.2f}** ({g['pct_complete']}%)" +
+            (f" — *{g['days_left']} days left until deadline*" if g["days_left"] is not None else "")
+            for g in goals
+        ]
+        return "🎯 **Your Active Savings Goals**:\n\n" + "\n".join(goal_strs)
+
+    elif any(w in msg for w in ["split", "owe", "debt", "friend", "group"]):
+        owed_me = debts["total_owed_to_user"]
+        i_owe = debts["total_user_owes"]
+        lines = ["👥 **Group Debts & Split Expenses Summary**:\n"]
+        if owed_me > 0:
+            lines.append(f"• **Friends owe you**: **{curr} {owed_me:.2f}** across your groups:")
+            for o in debts["owed_to_user"][:5]:
+                lines.append(f"   - **{o['friend']}** owes **{curr} {o['amount']:.2f}** in '{o['group']}'")
+        else:
+            lines.append("• Nobody currently owes you money in your split groups.")
+
+        if i_owe > 0:
+            lines.append(f"\n• **You owe friends**: **{curr} {i_owe:.2f}**:")
+            for uo in debts["user_owes"][:5]:
+                lines.append(f"   - You owe **{uo['friend']}** **{curr} {uo['amount']:.2f}** in '{uo['group']}'")
+        else:
+            lines.append("• You are fully settled up and do not owe anyone!")
+
+        lines.append(f"\n• **Overall Net Balance**: **{curr} {debts['net_split_balance']:.2f}**")
+        return "\n".join(lines)
+
+    elif any(w in msg for w in ["audit", "spending audit", "health check"]):
+        top_cats = ", ".join([f"**{c['category']}** ({curr} {c['spent']:.2f})" for c in cats[:3]]) if cats else "None"
+        exceeded_b = [b for b in budgets if b["status"] == "exceeded"]
+        audit_lines = [
+            f"🔍 **Comprehensive Financial Health Audit** ({context_data['date'][:7]}):",
+            f"• **Net Savings Rate**: **{cf['savings_rate_pct']}%** (Target: 20%+)",
+            f"• **Cashflow**: Income {curr} {cf['income']:.2f} vs Expenses {curr} {cf['expenses']:.2f} (Net: **{curr} {cf['net_savings']:.2f}**)",
+            f"• **Top Spending Pressure**: {top_cats}",
+        ]
+        if exceeded_b:
+            audit_lines.append(f"• ⚠️ **Budget Alert**: {len(exceeded_b)} budget(s) exceeded this month.")
+        else:
+            audit_lines.append("• ✅ **Budget Health**: No budgets currently breached.")
+        if cf['savings_rate_pct'] >= 20:
+            audit_lines.append("• 🌟 **Rating**: Excellent! Your savings discipline is exceptional.")
+        elif cf['savings_rate_pct'] >= 10:
+            audit_lines.append("• 📈 **Rating**: Good! Trimming top discretionary categories can boost you past 20%.")
+        else:
+            audit_lines.append("• ⚠️ **Rating**: Caution. Spending is near or exceeding income. Consider an immediate discretionary freeze.")
+        return "\n\n".join(audit_lines)
+
+    elif any(w in msg for w in ["spike", "category spike", "abnormal"]):
+        if not cats:
+            return "No expense data recorded this month to analyze spikes."
+        spikes = [c for c in cats if c["percentage"] >= 25]
+        if spikes:
+            spike_strs = [f"• **{c['category']}**: **{curr} {c['spent']:.2f}** ({c['percentage']}% of all monthly spend!)" for c in spikes]
+            return "🚨 **High-Concentration Spending Spikes Detected**:\n\n" + "\n".join(spike_strs) + "\n\n💡 *Tip: Diversifying and placing strict budget ceilings on these areas will balance your cashflow.*"
+        else:
+            return f"✅ **No single category spike detected.** Your spending is relatively evenly distributed across {len(cats)} categories."
+
+    elif any(w in msg for w in ["month-over-month", "mom", "comparison"]):
+        p_inc = prev_cf["income"]
+        p_exp = prev_cf["expenses"]
+        c_inc = cf["income"]
+        c_exp = cf["expenses"]
+        exp_diff = c_exp - p_exp
+        exp_pct = ((exp_diff / p_exp) * 100) if p_exp > 0 else (100.0 if c_exp > 0 else 0.0)
+        direction = "increased 🔺" if exp_diff > 0 else ("decreased 🔻" if exp_diff < 0 else "stayed even")
+        return (
+            f"📊 **Month-over-Month Comparison**:\n\n"
+            f"• **This Month**: Income {curr} {c_inc:.2f} | Expenses **{curr} {c_exp:.2f}**\n"
+            f"• **Last Month**: Income {curr} {p_inc:.2f} | Expenses **{curr} {p_exp:.2f}**\n"
+            f"• **Expense Delta**: Expenses have {direction} by **{curr} {abs(exp_diff):.2f}** ({abs(exp_pct):.1f}%).\n"
+            f"• **Net Savings Delta**: {curr} {(c_inc - c_exp) - (p_inc - p_exp):.2f}"
+        )
+
+    elif any(w in msg for w in ["tip", "advice", "how to save", "reduce", "recommend"]):
+        if cats:
+            top = cats[0]
+            savings_potential = top["spent"] * 0.15
+            return (
+                f"💡 **AI Financial Optimization Tip**:\n\n"
+                f"• Your top spending category this month is **{top['category']}** at **{curr} {top['spent']:.2f}** "
+                f"({top['percentage']}% of all expenses).\n"
+                f"• By reducing non-essential purchases in {top['category']} by just 15%, you could save **{curr} {savings_potential:.2f}** more this month!\n"
+                f"• Your current savings rate is **{cf['savings_rate_pct']}%**. Aiming for 20%+ is a proven personal finance benchmark."
+            )
+        return "💡 Set category budgets early in the month, track transactions daily, and try to build an emergency fund covering at least 3 months of basic expenses."
+
+    # Default overview
+    name = context_data["user"].get("display_name") or context_data["user"].get("username", "there")
+    return (
+        f"👋 Hi **{name}**! I'm FinanceOS AI, your personal financial assistant.\n\n"
+        f"Here is your real-time status for this month:\n"
+        f"• **Income**: {curr} {cf['income']:.2f} | **Expenses**: {curr} {cf['expenses']:.2f} (Net: **{curr} {cf['net_savings']:.2f}**)\n"
+        f"• **Budgets Active**: {len(budgets)} | **Goals Tracked**: {len(goals)} | **Recent Txns**: {len(context_data['recent_transactions'])}\n\n"
+        "Feel free to ask me questions like:\n"
+        "• *'Am I over budget this month?'*\n"
+        "• *'What are my biggest expenses?'*\n"
+        "• *'Who owes me money in Split?'*\n"
+        "• *'How can I save more money?'*"
+    )
+
+
+@app.post("/ai/chat/stream")
+async def ai_chat_stream(req: ChatMessageReq, user_id: int = Depends(get_current_user)):
+    from services import get_comprehensive_financial_context
+    context_data = get_comprehensive_financial_context(user_id)
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+
+    async def sse_generator():
+        if gemini_key:
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=gemini_key)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                prompt = build_financial_llm_prompt(context_data, req.message)
+                response = model.generate_content(prompt, stream=True)
+                for chunk in response:
+                    if chunk.text:
+                        payload = json.dumps({"text": chunk.text, "chunk": chunk.text})
+                        yield f"data: {payload}\n\n"
+                        await asyncio.sleep(0.01)
+                yield "data: [DONE]\n\n"
+                return
+            except Exception as e:
+                print(f"Gemini Streaming Error: {e}")
+                # Fall through to local fallback generator below
+
+        # Fallback intelligent streaming
+        fallback_text = generate_fallback_response(context_data, req.message)
+        words = fallback_text.split(" ")
+        for i, word in enumerate(words):
+            chunk = word + (" " if i < len(words) - 1 else "")
+            payload = json.dumps({"text": chunk, "chunk": chunk})
+            yield f"data: {payload}\n\n"
+            await asyncio.sleep(0.015)
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        sse_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
+
 @app.post("/ai/chat")
 def ai_chat(req: ChatMessageReq, user_id: int = Depends(get_current_user)):
-    from services import list_transactions, list_goals, get_budget_status
-    from db import get_cursor
-    
-    # 1. Fetch user data
-    txns = list_transactions(user_id)
-    goals = list_goals(user_id)
-    
-    # Get active budgets status
-    budgets_status = []
-    curr_month = date.today().month
-    curr_year = date.today().year
-    with get_cursor() as cur:
-        cur.execute("""
-            SELECT b.category_id, b.amount, c.name 
-            FROM budgets b 
-            JOIN categories c ON b.category_id = c.id
-            WHERE b.user_id = %s AND b.month = %s AND b.year = %s
-        """, (user_id, curr_month, curr_year))
-        budget_rows = cur.fetchall()
-        for br in budget_rows:
-            status = get_budget_status(user_id, br["category_id"], curr_month, curr_year)
-            budgets_status.append({
-                "category": br["name"],
-                "budget_amount": br["amount"],
-                "spent": status["spent"],
-                "remaining": status["remaining"]
-            })
-            
-    # Format current date
-    today_str = date.today().strftime("%Y-%m-%d")
-    
-    # 2. Format Context for LLM
-    context_lines = [
-        f"Today's date is: {today_str}.",
-        "Here is the user's financial overview to help you answer questions:",
-        "- Budgets for current month:"
-    ]
-    if budgets_status:
-        for b in budgets_status:
-            context_lines.append(f"  * Category '{b['category']}': Budget limit is {b['budget_amount']}, Spent so far is {b['spent']}, Remaining budget: {b['remaining']}")
-    else:
-        context_lines.append("  * No budgets set for the current month.")
-        
-    context_lines.append("- Active Savings Goals:")
-    if goals:
-        for g in goals:
-            context_lines.append(f"  * Goal '{g['name']}': Target: {g['target_amount']}, Saved: {g['current_amount']}, Deadline: {g['deadline'] or 'none'}")
-    else:
-        context_lines.append("  * No active savings goals.")
-        
-    context_lines.append("- Recent Transactions (last 20):")
-    recent_txns = txns[:20]
-    if recent_txns:
-        for t in recent_txns:
-            context_lines.append(f"  * {t['txn_date']}: {t['category_type'].upper()} of {t['amount']} for '{t['category_name']}' (Desc: {t['description'] or 'none'})")
-    else:
-        context_lines.append("  * No transactions recorded.")
-        
-    context = "\n".join(context_lines)
-    
-    # 3. Call Gemini SDK if Key exists
+    from services import get_comprehensive_financial_context
+    context_data = get_comprehensive_financial_context(user_id)
     gemini_key = os.environ.get("GEMINI_API_KEY")
+
     if gemini_key:
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_key)
             model = genai.GenerativeModel('gemini-1.5-flash')
-            system_instruction = (
-                "You are FinanceOS AI, an intelligent, helpful, and concise financial assistant. "
-                "You have access to the user's real-time financial stats in the prompt context. "
-                "Analyze the user's transactions, budget limits, or savings goals to answer their questions. "
-                "Always format monetary values clearly. Keep answers under 3-4 sentences when possible. "
-                "If they ask about items not present in the context, politely mention that you don't have access to that information."
-            )
-            prompt = f"{system_instruction}\n\n[USER DATA CONTEXT]\n{context}\n\nUser Question: {req.message}"
+            prompt = build_financial_llm_prompt(context_data, req.message)
             response = model.generate_content(prompt)
             return {"response": response.text}
         except Exception as e:
             print(f"Gemini API Error: {e}")
-            # Fall through to local fallback
-            
-    # 4. Fallback Mode (Rule-based parsing)
-    msg = req.message.lower()
-    total_spent = sum(float(t['amount']) for t in txns if t['category_type'] == 'expense')
-    total_income = sum(float(t['amount']) for t in txns if t['category_type'] == 'income')
-    
-    if "spent" in msg or "expense" in msg or "spend" in msg:
-        if budgets_status:
-            exceeded = [b for b in budgets_status if b['spent'] > b['budget_amount']]
-            exceeded_str = f" You have exceeded budget in: {', '.join([b['category'] for b in exceeded])}." if exceeded else ""
-            return {"response": f"Based on my quick check, your total recorded expenses are {total_spent:.2f}. You have {len(budgets_status)} active budgets.{exceeded_str}"}
-        return {"response": f"Your total expenses recorded so far are {total_spent:.2f}. No active budgets are set for this month yet."}
-    elif "income" in msg or "salary" in msg or "earn" in msg:
-        return {"response": f"You have recorded a total income of {total_income:.2f} across all transactions."}
-    elif "goal" in msg or "save" in msg or "saving" in msg:
-        if goals:
-            g_str = ", ".join([f"'{g['name']}' ({g['current_amount']}/{g['target_amount']})" for g in goals])
-            return {"response": f"You are currently tracking {len(goals)} savings goals: {g_str}."}
-        return {"response": "You don't have any active savings goals set up yet. Go to the Savings page to start one!"}
-    
-    return {
-        "response": (
-            "Hi! I am FinanceOS AI. I'm currently running in local fallback mode. "
-            f"I see you have recorded {len(txns)} transactions, {len(budgets_status)} active budgets, "
-            f"and {len(goals)} active savings goals. To get personalized analysis with generative intelligence, "
-            "please configure the GEMINI_API_KEY environment variable."
+
+    return {"response": generate_fallback_response(context_data, req.message)}
+
+
+# ── Security Lock Reset Verification ────────────────────────────────────────
+
+class SecurityResetVerifyRequest(BaseModel):
+    email: str
+
+
+@app.post("/auth/security-lock/reset-verify")
+def verify_security_lock_reset(
+    req: SecurityResetVerifyRequest,
+    user_id: int = Depends(get_current_user)
+):
+    """Verify that the provided email matches the authenticated user's email."""
+    from auth import get_user_by_id
+    user = get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    registered_email = (user.get("email") or "").strip().lower()
+    provided_email = (req.email or "").strip().lower()
+    if not registered_email or registered_email != provided_email:
+        raise HTTPException(
+            status_code=400,
+            detail="The provided email does not match your registered account email."
         )
-    }
+    return {"success": True, "message": "Identity verified successfully. Default lock reset permitted."}
+
+
+# ── Proprietary Financial Health Index Endpoint ─────────────────────────────
+
+@app.get("/reports/financial-health")
+def get_financial_health_report(
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    user_id: int = Depends(get_current_user)
+):
+    """Returns the 0-1000 proprietary Financial Health Index, pillars, and boosters."""
+    today = date.today()
+    m = month or today.month
+    y = year or today.year
+    return compute_financial_health_index(user_id, m, y)
+
+
+# ── Recurring Bills Endpoints ───────────────────────────────────────────────
+
+class RecurringBillCreateReq(BaseModel):
+    id: Optional[str] = None
+    name: str
+    amount: float
+    day: int = 1
+    category: str = "Utilities"
+    cycle: str = "Monthly"
+
+
+class RecurringBillPayReq(BaseModel):
+    month: int
+    year: int
+
+
+@app.get("/recurring-bills")
+def get_recurring_bills_api(user_id: int = Depends(get_current_user)):
+    return list_recurring_bills(user_id)
+
+
+@app.post("/recurring-bills")
+def create_recurring_bill_api(
+    req: RecurringBillCreateReq,
+    user_id: int = Depends(get_current_user)
+):
+    import time
+    bill_id = req.id or f"rb-{int(time.time() * 1000)}"
+    return add_recurring_bill(
+        user_id=user_id,
+        bill_id=bill_id,
+        name=req.name,
+        amount=req.amount,
+        day=req.day,
+        category=req.category,
+        cycle=req.cycle
+    )
+
+
+@app.delete("/recurring-bills/{bill_id}")
+def delete_recurring_bill_api(bill_id: str, user_id: int = Depends(get_current_user)):
+    success = delete_recurring_bill(user_id, bill_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Recurring bill not found")
+    return {"success": True, "deleted_id": bill_id}
+
+
+@app.put("/recurring-bills/{bill_id}/pay")
+def mark_bill_paid_api(
+    bill_id: str,
+    req: RecurringBillPayReq,
+    user_id: int = Depends(get_current_user)
+):
+    success = mark_recurring_bill_paid(user_id, bill_id, req.month, req.year)
+    if not success:
+        raise HTTPException(status_code=404, detail="Recurring bill not found")
+    return {"success": True, "bill_id": bill_id, "paid_month": f"{req.year}-{req.month}"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    host = os.environ.get("HOST", "127.0.0.1")
+    port = int(os.environ.get("PORT", 8000))
+    print(f"\n🚀 AI Finance API running at:")
+    print(f"   -> Local:   http://{host}:{port}")
+    print(f"   -> Docs:    http://{host}:{port}/docs\n")
+    uvicorn.run("main:app", host=host, port=port, reload=True)
 
