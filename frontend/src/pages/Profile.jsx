@@ -119,6 +119,22 @@ export default function Profile() {
         currency: res.data.currency || 'INR'
       });
       localStorage.setItem('finance-os-currency', res.data.currency || 'INR');
+      try {
+        const secRes = await api.get('/profile/security-lock');
+        if (secRes.data) {
+          const isEnabled = Boolean(secRes.data.enabled);
+          const activeMode = secRes.data.mode || 'pin';
+          setSecEnabled(isEnabled);
+          setSecMode(activeMode);
+          localStorage.setItem('finance-os-security-enabled', String(isEnabled));
+          localStorage.setItem('finance-os-security-mode', activeMode);
+          if (secRes.data.pin) localStorage.setItem('finance-os-pin', secRes.data.pin);
+          if (secRes.data.password) localStorage.setItem('finance-os-password', secRes.data.password);
+          if (secRes.data.pattern) localStorage.setItem('finance-os-pattern', secRes.data.pattern);
+        }
+      } catch (secErr) {
+        console.warn('Could not fetch cloud security settings:', secErr);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -461,11 +477,16 @@ export default function Profile() {
                 <input
                   type="checkbox"
                   checked={secEnabled}
-                  onChange={e => {
+                  onChange={async e => {
                     const next = e.target.checked;
                     setSecEnabled(next);
                     localStorage.setItem('finance-os-security-enabled', String(next));
-                    window.dispatchEvent(new CustomEvent('securitySettingsChange', { detail: { enabled: next } }));
+                    window.dispatchEvent(new CustomEvent('securitySettingsChange', { detail: { enabled: next, mode: secMode } }));
+                    try {
+                      await api.put('/profile/security-lock', { enabled: next });
+                    } catch (err) {
+                      console.warn('Failed to sync security toggle:', err);
+                    }
                   }}
                 />
                 <span className="switch-slider" />
@@ -482,10 +503,15 @@ export default function Profile() {
                 <button
                   key={mode}
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     setSecMode(mode);
                     localStorage.setItem('finance-os-security-mode', mode);
                     window.dispatchEvent(new CustomEvent('securitySettingsChange', { detail: { mode, enabled: secEnabled } }));
+                    try {
+                      await api.put('/profile/security-lock', { mode });
+                    } catch (err) {
+                      console.warn('Failed to sync security mode:', err);
+                    }
                   }}
                   style={{
                     padding: '0.45rem 0.85rem',
@@ -538,6 +564,7 @@ export default function Profile() {
         <SecurityLockModal
           isOpen={securityModalOpen}
           isSetupMode={isSetupLock}
+          initialMode={secMode}
           allowClose={isSetupLock}
           onClose={() => setSecurityModalOpen(false)}
           onUnlock={() => setSecurityModalOpen(false)}

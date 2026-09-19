@@ -12,15 +12,16 @@ export default function SecurityLockModal({
   onClose,
   onUnlock,
   isSetupMode = false,
-  allowClose = false
+  allowClose = false,
+  initialMode = null
 }) {
   // Active lock type: 'pin' | 'password' | 'pattern'
   const [lockMode, setLockMode] = useState(
-    () => localStorage.getItem('finance-os-security-mode') || 'pin'
+    () => (isSetupMode && initialMode) || localStorage.getItem('finance-os-security-mode') || 'pin'
   );
 
-  // Active tab: in setup mode, defaults to configured mode; in lock mode, strictly configured mode
-  const [activeTab, setActiveTab] = useState(lockMode);
+  // Active tab: in setup mode, defaults to initialMode or configured mode; in lock mode, strictly configured mode
+  const [activeTab, setActiveTab] = useState((isSetupMode && initialMode) || lockMode);
 
   // PIN state
   const [pin, setPin] = useState('');
@@ -50,9 +51,24 @@ export default function SecurityLockModal({
 
   useEffect(() => {
     if (isOpen) {
-      const savedMode = localStorage.getItem('finance-os-security-mode') || 'pin';
-      setLockMode(savedMode);
-      setActiveTab(savedMode);
+      const fallbackMode = (isSetupMode && initialMode) ? initialMode : (localStorage.getItem('finance-os-security-mode') || 'pin');
+      setLockMode(fallbackMode);
+      setActiveTab(fallbackMode);
+
+      api.get('/profile/security-lock').then(res => {
+        if (res.data) {
+          const serverMode = res.data.mode || 'pin';
+          if (res.data.pin) localStorage.setItem('finance-os-pin', res.data.pin);
+          if (res.data.password) localStorage.setItem('finance-os-password', res.data.password);
+          if (res.data.pattern) localStorage.setItem('finance-os-pattern', res.data.pattern);
+          localStorage.setItem('finance-os-security-mode', serverMode);
+
+          const target = (isSetupMode && initialMode) ? initialMode : serverMode;
+          setLockMode(serverMode);
+          setActiveTab(target);
+        }
+      }).catch(() => {});
+
       setPin('');
       setConfirmPin('');
       setPinStep(1);
@@ -68,7 +84,7 @@ export default function SecurityLockModal({
       setError('');
       setSuccess('');
     }
-  }, [isOpen, isSetupMode]);
+  }, [isOpen, isSetupMode, initialMode]);
 
   if (!isOpen) return null;
 
@@ -101,6 +117,7 @@ export default function SecurityLockModal({
           localStorage.setItem('finance-os-pin', entered);
           localStorage.setItem('finance-os-security-mode', 'pin');
           setLockMode('pin');
+          api.put('/profile/security-lock', { pin: entered, mode: 'pin' }).catch(() => {});
           window.dispatchEvent(new CustomEvent('securitySettingsChange', { detail: { mode: 'pin' } }));
           setSuccess('New 4-digit PIN saved successfully!');
           setPin('');
@@ -146,6 +163,7 @@ export default function SecurityLockModal({
           localStorage.setItem('finance-os-password', password);
           localStorage.setItem('finance-os-security-mode', 'password');
           setLockMode('password');
+          api.put('/profile/security-lock', { password: password, mode: 'password' }).catch(() => {});
           window.dispatchEvent(new CustomEvent('securitySettingsChange', { detail: { mode: 'password' } }));
           setSuccess('New password saved successfully!');
           setPassword('');
@@ -200,6 +218,7 @@ export default function SecurityLockModal({
           localStorage.setItem('finance-os-pattern', patternString);
           localStorage.setItem('finance-os-security-mode', 'pattern');
           setLockMode('pattern');
+          api.put('/profile/security-lock', { pattern: patternString, mode: 'pattern' }).catch(() => {});
           window.dispatchEvent(new CustomEvent('securitySettingsChange', { detail: { mode: 'pattern' } }));
           setSuccess('New pattern saved successfully!');
           setPatternNodes([]);
@@ -255,6 +274,12 @@ export default function SecurityLockModal({
         localStorage.setItem('finance-os-security-mode', 'pin');
         setLockMode('pin');
         setActiveTab('pin');
+        api.put('/profile/security-lock', {
+          pin: '1234',
+          password: 'admin123',
+          pattern: '0-1-2-5-8',
+          mode: 'pin'
+        }).catch(() => {});
         window.dispatchEvent(new CustomEvent('securitySettingsChange', { detail: { mode: 'pin' } }));
         setSuccess('Identity verified via email! Security lock has been reset to default PIN (1234). Unlocking...');
         setTimeout(() => {

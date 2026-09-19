@@ -70,6 +70,8 @@ from services import (
     mark_recurring_bill_paid,
     generate_ai_financial_response,
     compute_financial_health_index,
+    get_user_security_settings,
+    update_user_security_settings,
 )
 
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "super-secret-key-for-local-dev-change-me")
@@ -193,6 +195,26 @@ async def lifespan(app: FastAPI):
                 pass
             try:
                 cur.execute("ALTER TABLE savings_goals ADD COLUMN monthly_allocation DECIMAL(12,2) DEFAULT NULL")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE users ADD COLUMN security_lock_enabled TINYINT(1) DEFAULT 0")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE users ADD COLUMN security_lock_mode VARCHAR(20) DEFAULT 'pin'")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE users ADD COLUMN security_lock_pin VARCHAR(50) DEFAULT '1234'")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE users ADD COLUMN security_lock_password VARCHAR(255) DEFAULT 'admin123'")
+            except Exception:
+                pass
+            try:
+                cur.execute("ALTER TABLE users ADD COLUMN security_lock_pattern VARCHAR(100) DEFAULT '0-1-2-5-8'")
             except Exception:
                 pass
 
@@ -1351,6 +1373,65 @@ def mark_bill_paid_api(
     if not success:
         raise HTTPException(status_code=404, detail="Recurring bill not found")
     return {"success": True, "bill_id": bill_id, "paid_month": f"{req.year}-{req.month}"}
+
+
+# ── Account Data Backup & Restore ───────────────────────────────────────────
+
+@app.get("/profile/backup")
+def get_profile_backup_api(
+    month: Optional[str] = None,
+    year: Optional[str] = None,
+    user_id: int = Depends(get_current_user)
+):
+    """Export complete account data (transactions, budgets, goals, recurring bills, groups) into portable JSON."""
+    m = int(month) if (month and month != "all") else None
+    y = int(year) if (year and year != "all") else None
+    return export_full_account_data(user_id, month=m, year=y)
+
+
+class RestoreBackupReq(BaseModel):
+    data: dict
+
+
+@app.post("/profile/restore")
+def post_profile_restore_api(
+    req: RestoreBackupReq,
+    user_id: int = Depends(get_current_user)
+):
+    """Restore transactions, budgets, goals, and recurring bills from uploaded JSON backup."""
+    return restore_full_account_data(user_id, req.data)
+
+
+# ── Persistent Security Lock Configuration ──────────────────────────────────
+
+class SecuritySettingsUpdateReq(BaseModel):
+    enabled: Optional[bool] = None
+    mode: Optional[str] = None
+    pin: Optional[str] = None
+    password: Optional[str] = None
+    pattern: Optional[str] = None
+
+
+@app.get("/profile/security-lock")
+def get_security_lock_api(user_id: int = Depends(get_current_user)):
+    """Fetch user's security lock configuration from database."""
+    return get_user_security_settings(user_id)
+
+
+@app.put("/profile/security-lock")
+def update_security_lock_api(
+    req: SecuritySettingsUpdateReq,
+    user_id: int = Depends(get_current_user)
+):
+    """Update user's security lock configuration in database."""
+    return update_user_security_settings(
+        user_id=user_id,
+        enabled=req.enabled,
+        mode=req.mode,
+        pin=req.pin,
+        password=req.password,
+        pattern=req.pattern
+    )
 
 
 if __name__ == "__main__":

@@ -13,6 +13,11 @@ CREATE TABLE IF NOT EXISTS users (
     currency      VARCHAR(10)    DEFAULT 'INR',
     password_hash VARCHAR(255)   NOT NULL,
     is_admin      TINYINT(1)     NOT NULL DEFAULT 0,
+    security_lock_enabled TINYINT(1) DEFAULT 0,
+    security_lock_mode    VARCHAR(20) DEFAULT 'pin',
+    security_lock_pin     VARCHAR(50) DEFAULT '1234',
+    security_lock_password VARCHAR(255) DEFAULT 'admin123',
+    security_lock_pattern  VARCHAR(100) DEFAULT '0-1-2-5-8',
     created_at    DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -74,6 +79,20 @@ CREATE TABLE IF NOT EXISTS savings_goals (
     color              VARCHAR(20)    DEFAULT '#6366f1',
     monthly_allocation DECIMAL(12,2)  DEFAULT NULL,
     created_at         DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Recurring Bills (Bills & Subscriptions Radar)
+CREATE TABLE IF NOT EXISTS recurring_bills (
+    id                 VARCHAR(64)    PRIMARY KEY,
+    user_id            INT            NOT NULL,
+    name               VARCHAR(120)   NOT NULL,
+    amount             DECIMAL(12,2)  NOT NULL,
+    day                INT            NOT NULL DEFAULT 1,
+    category           VARCHAR(60)    DEFAULT 'Utilities',
+    cycle              VARCHAR(40)    DEFAULT 'Monthly',
+    last_paid_month    VARCHAR(20)    DEFAULT '',
+    created_at         TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 

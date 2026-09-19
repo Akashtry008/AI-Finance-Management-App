@@ -107,8 +107,25 @@ export default function Layout() {
       }
     };
 
+    const fetchSecurityLock = async () => {
+      try {
+        const secRes = await api.get('/profile/security-lock');
+        if (secRes.data) {
+          const isEnabled = Boolean(secRes.data.enabled);
+          setSecEnabled(isEnabled);
+          localStorage.setItem('finance-os-security-enabled', String(isEnabled));
+          if (secRes.data.mode) {
+            localStorage.setItem('finance-os-security-mode', secRes.data.mode);
+          }
+        }
+      } catch (err) {
+        // offline or guest
+      }
+    };
+
     fetchNotifications();
     fetchUserCurrency();
+    fetchSecurityLock();
   }, [location.pathname]);
 
   useEffect(() => {

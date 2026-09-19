@@ -1,5 +1,6 @@
 # services.py
 from datetime import date
+from typing import Optional, List, Dict, Any
 from db import get_cursor
 
 # ---------- Categories ----------
@@ -1433,6 +1434,13 @@ def export_full_account_data(user_id: int, month: int | None = None, year: int |
             grp["target_budget"] = float(grp["target_budget"]) if grp.get("target_budget") else None
             grp["created_at"] = str(grp["created_at"]) if grp.get("created_at") else None
 
+        # Recurring Bills
+        cur.execute("SELECT id, name, amount, day, category, cycle, last_paid_month FROM recurring_bills WHERE user_id = %s", (user_id,))
+        bills = cur.fetchall()
+        for b in bills:
+            b["amount"] = float(b["amount"])
+            b["day"] = int(b["day"])
+
     return {
         "metadata": {
             "app": "FinanceOS",
@@ -1447,11 +1455,13 @@ def export_full_account_data(user_id: int, month: int | None = None, year: int |
         "budgets": budgets,
         "goals": goals,
         "split_groups": groups,
+        "recurring_bills": bills,
     }
 
 
 def restore_full_account_data(user_id: int, data: dict) -> dict:
-    """Restore transactions, budgets, and goals from imported backup payload."""
+    """Restore transactions, budgets, goals, and recurring bills from imported backup payload."""
+    import time
     if not isinstance(data, dict):
         return {"error": "Invalid backup data format."}
 
@@ -1491,6 +1501,20 @@ def restore_full_account_data(user_id: int, data: dict) -> dict:
                 """, (user_id, target_cat_id, t.get("amount", 0), t.get("description"), t.get("txn_date"), t.get("tags", "")))
                 restored_txns += 1
 
+        # Restore budgets
+        restored_budgets = 0
+        for b in data.get("budgets", []):
+            cat_id = b.get("category_id")
+            if not cat_id and b.get("category_name"):
+                cat_id = cat_id_map.get((b["category_name"].lower(), "expense"))
+            if cat_id:
+                cur.execute("""
+                    INSERT INTO budgets (user_id, category_id, month, year, amount, rollover)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE amount = VALUES(amount), rollover = VALUES(rollover)
+                """, (user_id, cat_id, b.get("month", 1), b.get("year", 2026), b.get("amount", 0), b.get("rollover", 1)))
+                restored_budgets += 1
+
         # Restore goals
         restored_goals = 0
         for g in data.get("goals", []):
@@ -1500,11 +1524,81 @@ def restore_full_account_data(user_id: int, data: dict) -> dict:
             """, (user_id, g["name"], g["target_amount"], g.get("current_amount", 0), g.get("deadline"), g.get("color", "#6366f1"), g.get("monthly_allocation")))
             restored_goals += 1
 
+        # Restore recurring bills
+        restored_bills = 0
+        for rb in data.get("recurring_bills", []):
+            rb_id = rb.get("id") or f"rb-{int(time.time() * 1000)}"
+            cur.execute("""
+                INSERT INTO recurring_bills (id, user_id, name, amount, day, category, cycle, last_paid_month)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE name = VALUES(name), amount = VALUES(amount), day = VALUES(day), category = VALUES(category), cycle = VALUES(cycle)
+            """, (rb_id, user_id, rb.get("name", "Bill"), rb.get("amount", 0), rb.get("day", 1), rb.get("category", "Utilities"), rb.get("cycle", "Monthly"), rb.get("last_paid_month", "")))
+            restored_bills += 1
+
     return {
         "success": True,
-        "restored_transactions": restored_txns,
-        "restored_goals": restored_goals,
+        "restored": {
+            "transactions": restored_txns,
+            "budgets": restored_budgets,
+            "goals": restored_goals,
+            "recurring_bills": restored_bills
+        }
     }
+
+
+# ── Security Lock Settings ──────────────────────────────────────────────────
+
+def get_user_security_settings(user_id: int) -> dict:
+    with get_cursor() as cur:
+        cur.execute("""
+            SELECT security_lock_enabled, security_lock_mode, security_lock_pin, security_lock_password, security_lock_pattern
+            FROM users WHERE id = %s
+        """, (user_id,))
+        row = cur.fetchone()
+        if not row:
+            return {"enabled": False, "mode": "pin", "pin": "1234", "password": "admin123", "pattern": "0-1-2-5-8"}
+        return {
+            "enabled": bool(row.get("security_lock_enabled", 0)),
+            "mode": row.get("security_lock_mode") or "pin",
+            "pin": row.get("security_lock_pin") or "1234",
+            "password": row.get("security_lock_password") or "admin123",
+            "pattern": row.get("security_lock_pattern") or "0-1-2-5-8",
+        }
+
+
+def update_user_security_settings(
+    user_id: int,
+    enabled: Optional[bool] = None,
+    mode: Optional[str] = None,
+    pin: Optional[str] = None,
+    password: Optional[str] = None,
+    pattern: Optional[str] = None
+) -> dict:
+    with get_cursor(commit=True) as cur:
+        updates = []
+        params = []
+        if enabled is not None:
+            updates.append("security_lock_enabled = %s")
+            params.append(1 if enabled else 0)
+        if mode is not None:
+            updates.append("security_lock_mode = %s")
+            params.append(mode)
+        if pin is not None:
+            updates.append("security_lock_pin = %s")
+            params.append(pin)
+        if password is not None:
+            updates.append("security_lock_password = %s")
+            params.append(password)
+        if pattern is not None:
+            updates.append("security_lock_pattern = %s")
+            params.append(pattern)
+
+        if updates:
+            params.append(user_id)
+            sql = f"UPDATE users SET {', '.join(updates)} WHERE id = %s"
+            cur.execute(sql, tuple(params))
+
+    return get_user_security_settings(user_id)
 
 
 # ── Recurring Bills ─────────────────────────────────────────────────────────
