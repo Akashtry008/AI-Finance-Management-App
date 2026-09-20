@@ -816,7 +816,7 @@ export default function Split() {
         ...prev,
         amount: data.amount ? data.amount.toString() : prev.amount,
         expense_date: data.date || prev.expense_date,
-        description: prev.description ? prev.description : 'Group Receipt'
+        description: data.description || data.merchant || prev.description || 'Group Receipt'
       }));
     } catch (err) {
       showAlert({

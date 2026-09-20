@@ -5,7 +5,7 @@ import {
   Plus, Pencil, Trash2, X, Check, Camera,
   ArrowUpCircle, ArrowDownCircle, Filter, Download, FileText,
   Receipt, Sparkles, MessageCircle, FileDown, FileSpreadsheet,
-  Car, Hash, Tag, Share2
+  Car, Hash, Tag, Share2, CheckCircle2
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
@@ -89,6 +89,7 @@ export default function Transactions() {
   const [selectedTag, setSelectedTag] = useState(null);
   const [showCsvModal, setShowCsvModal] = useState(false);
   const [showMileageModal, setShowMileageModal] = useState(false);
+  const [scanBanner, setScanBanner] = useState(null);
   const fileInputRef = React.useRef(null);
 
   useEffect(() => {
@@ -168,6 +169,7 @@ export default function Transactions() {
   const openAdd = () => {
     setEditTxn(null);
     setForm({ category_id: '', amount: '', txn_date: now.toISOString().split('T')[0], description: '', tags: '', split_group_id: '' });
+    setScanBanner(null);
     setError('');
     setShowMerchantSuggestions(false);
     setShowModal(true);
@@ -176,6 +178,7 @@ export default function Transactions() {
   const openEdit = (t) => {
     setEditTxn(t);
     setForm({ category_id: t.category_id || '', amount: t.amount, txn_date: t.txn_date, description: t.description || '', tags: t.tags || '', split_group_id: '' });
+    setScanBanner(null);
     setError('');
     setShowMerchantSuggestions(false);
     setShowModal(true);
@@ -186,6 +189,7 @@ export default function Transactions() {
     if (!file) return;
     
     setScanning(true);
+    setError('');
     const formData = new FormData();
     formData.append('file', file);
     
@@ -196,18 +200,41 @@ export default function Transactions() {
       
       const data = res.data;
       
-      setForm({
-        category_id: '',
-        amount: data.amount ? data.amount.toString() : '',
-        txn_date: data.date,
-        description: 'Receipt Scan'
+      let matchedCatId = data.category_id ? String(data.category_id) : '';
+      if (!matchedCatId && data.category_name) {
+        const found = displayCategories.find(c => 
+          c.type === 'expense' && 
+          (c.name.toLowerCase() === data.category_name.toLowerCase() || 
+           c.name.toLowerCase().includes(data.category_name.toLowerCase()) ||
+           data.category_name.toLowerCase().includes(c.name.toLowerCase()))
+        );
+        if (found) matchedCatId = String(found.id);
+      }
+      if (!matchedCatId) {
+        const firstExpense = displayCategories.find(c => c.type === 'expense');
+        if (firstExpense) matchedCatId = String(firstExpense.id);
+      }
+
+      setForm(prev => ({
+        ...prev,
+        category_id: matchedCatId,
+        amount: data.amount ? data.amount.toString() : prev.amount,
+        txn_date: data.date || prev.txn_date || new Date().toISOString().split('T')[0],
+        description: data.description || data.merchant || prev.description || 'Receipt Scan',
+        tags: data.tags || '#receipt-scan'
+      }));
+      setScanBanner({
+        merchant: data.merchant || 'Detected Merchant',
+        amount: data.amount,
+        date: data.date,
+        category: data.category_name || 'Expense'
       });
       setShowModal(true);
       
     } catch (err) {
       showAlert({
         title: 'Receipt Scan Failed',
-        message: formatErrorMessage(err, "Failed to scan receipt. Please ensure it's a valid image."),
+        message: formatErrorMessage(err, "Failed to scan receipt. Please ensure it's a clear photo of a bill or invoice."),
         type: 'danger',
       });
     } finally {
@@ -709,6 +736,64 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
         <Modal title={editTxn ? 'Edit Transaction' : 'Add Transaction'} onClose={() => setShowModal(false)}>
           <form onSubmit={handleSubmit} className="modal-form">
             {error && <div className="auth-error" style={{marginBottom:'1rem'}}>{error}</div>}
+
+            {!editTxn && (
+              <div className="modal-scan-receipt-banner" style={{
+                marginBottom: '1.25rem',
+                padding: '0.85rem 1rem',
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.1))',
+                border: '1px dashed rgba(99, 102, 241, 0.4)',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.75rem'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <Sparkles size={18} color="#6366f1" />
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-color)' }}>
+                      Auto-fill from Bill or Receipt
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      AI reads merchant, total amount, date & category
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.8rem', padding: '0.4rem 0.85rem' }}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={scanning}
+                >
+                  <Camera size={14} />
+                  <span>{scanning ? 'Scanning...' : 'Upload Bill Photo'}</span>
+                </button>
+              </div>
+            )}
+
+            {scanBanner && (
+              <div style={{
+                marginBottom: '1rem',
+                padding: '0.7rem 0.9rem',
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '8px',
+                fontSize: '0.82rem',
+                color: '#a7f3d0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                <CheckCircle2 size={16} color="#10b981" />
+                <span>
+                  Bill Scanned: Detected <strong>{getCurrencySymbol()}{scanBanner.amount}</strong> at <strong>{scanBanner.merchant}</strong> ({scanBanner.category}). Details auto-filled below!
+                </span>
+              </div>
+            )}
+
             <div className="form-group">
               <label>Category</label>
               <select value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})} required>

@@ -457,9 +457,20 @@ class ResetPasswordReq(BaseModel):
 
 @app.post("/forgot-password")
 def forgot_password(req: ForgotPasswordReq):
-    token = generate_reset_token(req.email)
-    # Always return success to prevent enumeration
-    return {"msg": "If the email exists, a reset link was sent."}
+    info = generate_reset_token(req.email)
+    if info:
+        return {
+            "success": True,
+            "msg": "A password reset link has been dispatched to your registered email address.",
+            "email_sent": info.get("email_sent", False),
+            "dev_reset_link": info.get("reset_link") if not info.get("email_sent") else None
+        }
+    # Always return standard response to prevent user enumeration
+    return {
+        "success": True,
+        "msg": "If the email is registered, a password reset link has been dispatched.",
+        "email_sent": False
+    }
 
 @app.post("/reset-password")
 def reset_password(req: ResetPasswordReq):
@@ -505,65 +516,33 @@ def get_categories(ctype: str = None, user_id: int = Depends(get_current_user)):
 @app.post("/transactions/scan-receipt")
 async def scan_receipt(file: UploadFile = File(...), user_id: int = Depends(get_current_user)):
     try:
-        import easyocr
-        import re
-        from PIL import Image
-        import io
-        import numpy as np
-
+        from receipt_scanner import process_receipt_image
         image_bytes = await file.read()
-        img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-        img_np = np.array(img)
-
-        # Initialize reader (will use CPU and download models on first run if needed)
-        reader = easyocr.Reader(['en'], gpu=False)
-        result = reader.readtext(img_np)
-
-        max_amount = 0.0
-        date_found = None
-        
-        amount_pattern = re.compile(r'(?:rs\.?|inr|\$|€|£)?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', re.IGNORECASE)
-        date_pattern = re.compile(r'\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b')
-
-        for (bbox, text, prob) in result:
-            text = text.lower().strip()
-            
-            # Find dates
-            if not date_found:
-                d_match = date_pattern.search(text)
-                if d_match:
-                    try:
-                        # Try to parse to YYYY-MM-DD
-                        d_str = d_match.group(1).replace('/', '-')
-                        parts = d_str.split('-')
-                        if len(parts[-1]) == 2:
-                            parts[-1] = "20" + parts[-1]
-                        if len(parts[0]) == 4:
-                            d = datetime.datetime.strptime(f"{parts[0]}-{parts[1]}-{parts[2]}", "%Y-%m-%d")
-                        else:
-                            d = datetime.datetime.strptime(f"{parts[2]}-{parts[1]}-{parts[0]}", "%Y-%m-%d")
-                        date_found = d.strftime("%Y-%m-%d")
-                    except:
-                        pass
-            
-            # Find amounts
-            matches = amount_pattern.findall(text)
-            for m in matches:
-                try:
-                    val = float(m.replace(',', ''))
-                    # Receipts usually have total at the bottom which is the largest number
-                    if val > max_amount and val < 1000000: # sanity check
-                        max_amount = val
-                except:
-                    pass
-
-        return {
-            "amount": max_amount,
-            "date": date_found or date.today().strftime("%Y-%m-%d")
-        }
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="Empty receipt file provided")
+        user_cats = list_categories(user_id, "expense")
+        result = process_receipt_image(image_bytes, user_cats)
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"OCR Error: {e}")
-        raise HTTPException(status_code=500, detail="Failed to process receipt image")
+        print(f"[scan_receipt] Error processing receipt: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to process receipt image: {str(e)}")
+
+
+class ReceiptTextParseReq(BaseModel):
+    text: str
+
+@app.post("/transactions/parse-receipt-text")
+def parse_receipt_text(req: ReceiptTextParseReq, user_id: int = Depends(get_current_user)):
+    try:
+        from receipt_scanner import parse_receipt_nlp
+        lines = [line.strip() for line in req.text.split("\n") if line.strip()]
+        user_cats = list_categories(user_id, "expense")
+        return parse_receipt_nlp(lines, user_cats)
+    except Exception as e:
+        print(f"[parse_receipt_text] Error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to parse receipt text")
 
 
 class TransactionCreate(BaseModel):

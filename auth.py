@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timedelta
 from db import get_cursor
-from config import SMTP_CONFIG
+from email_service import send_password_reset_email, send_welcome_email
 
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
@@ -102,6 +102,14 @@ def register_user(username: str, email: str, password: str) -> bool:
             ]
             for cname, ctype in cats:
                 cur.execute("INSERT IGNORE INTO categories (user_id, name, type) VALUES (%s, %s, %s)", (u_id, cname, ctype))
+
+        try:
+            from config import SMTP_CONFIG
+            app_url = SMTP_CONFIG.get('app_url', 'http://localhost:5173')
+            send_welcome_email(email, username, app_url)
+        except Exception as e:
+            print(f"[register_user] Welcome email dispatch skipped: {e}")
+
         return True
 
 
@@ -128,8 +136,8 @@ def get_user_by_id(user_id: int) -> dict | None:
         cur.execute("SELECT id, username, email, is_admin FROM users WHERE id = %s", (user_id,))
         return cur.fetchone()
 
-def generate_reset_token(email: str) -> str | None:
-    """Generate a reset token and send it via email."""
+def generate_reset_token(email: str) -> dict | None:
+    """Generate a reset token and send it via email. Returns info dict or None if user not found."""
     with get_cursor(commit=True) as cur:
         cur.execute("SELECT id, username FROM users WHERE email = %s", (email,))
         row = cur.fetchone()
@@ -150,47 +158,20 @@ def generate_reset_token(email: str) -> str | None:
             (token, user_id, expires_at)
         )
         
-        # Send email using config.py credentials
-        smtp_user = SMTP_CONFIG.get('username', '')
-        smtp_pass = SMTP_CONFIG.get('password', '')
-        app_url   = SMTP_CONFIG.get('app_url', 'http://localhost:5174')
+        from config import SMTP_CONFIG
+        app_url = SMTP_CONFIG.get('app_url', 'http://localhost:5173')
         reset_link = f"{app_url}/reset-password?token={token}"
         
-        if smtp_user and smtp_pass:
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = "FinanceOS - Password Reset Request"
-            msg["From"]    = smtp_user
-            msg["To"]      = email
-            html = f"""
-            <html>
-              <body style="font-family:Arial,sans-serif;background:#0f172a;color:#e2e8f0;padding:2rem;">
-                <div style="max-width:480px;margin:auto;background:#1e293b;border-radius:12px;padding:2rem;border:1px solid #334155;">
-                  <h2 style="color:#10b981">FinanceOS Password Reset</h2>
-                  <p>Hello <strong>{username}</strong>,</p>
-                  <p>A password reset was requested for your account. Click the button below to set a new password. This link expires in <strong>1 hour</strong>.</p>
-                  <a href="{reset_link}" style="display:inline-block;margin:1.5rem 0;padding:12px 28px;background:#10b981;color:white;text-decoration:none;border-radius:8px;font-weight:bold;">Reset My Password</a>
-                  <p style="color:#94a3b8;font-size:0.85rem;">If you did not request this, you can safely ignore this email.</p>
-                </div>
-              </body>
-            </html>
-            """
-            msg.attach(MIMEText(html, "html"))
-            try:
-                with smtplib.SMTP(SMTP_CONFIG['server'], SMTP_CONFIG['port']) as server:
-                    server.starttls()
-                    server.login(smtp_user, smtp_pass)
-                    server.sendmail(smtp_user, email, msg.as_string())
-                print(f"[{datetime.now()}] SUCCESS: Password reset email sent to {email}")
-            except Exception as e:
-                print(f"[{datetime.now()}] SMTP ERROR for {email}: {e}")
-        else:
-            # Fallback: print the link to the terminal if SMTP not configured
-            print(f"\n{'='*60}")
-            print(f"[SMTP NOT CONFIGURED] Password reset link for: {email}")
-            print(f"Link: {reset_link}")
-            print(f"{'='*60}\n")
+        email_sent, email_msg = send_password_reset_email(email, username, reset_link)
         
-        return token
+        return {
+            "token": token,
+            "username": username,
+            "email": email,
+            "reset_link": reset_link,
+            "email_sent": email_sent,
+            "message": email_msg
+        }
 
 
 def reset_password_with_token(token: str, new_password: str) -> bool:

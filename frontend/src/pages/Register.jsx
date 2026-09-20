@@ -18,9 +18,9 @@ export default function Register() {
     setSuccess('');
     setLoading(true);
     try {
-      await api.post('/register', form);
-      setSuccess('Account created! Redirecting to login...');
-      setTimeout(() => navigate('/login'), 1500);
+      const res = await api.post('/register', form);
+      setSuccess(res.data?.msg || 'Account created! Welcome email dispatched. Redirecting to login...');
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed.');
     } finally {

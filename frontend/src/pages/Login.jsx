@@ -12,6 +12,7 @@ export default function Login() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [isForgotMode, setIsForgotMode] = useState(false);
+  const [devResetLink, setDevResetLink] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -37,12 +38,16 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setDevResetLink('');
     setLoading(true);
     try {
       const res = await api.post('/forgot-password', { email: form.email });
       setSuccess(res.data.msg);
+      if (res.data.dev_reset_link) {
+        setDevResetLink(res.data.dev_reset_link);
+      }
     } catch (err) {
-      setError('Failed to send reset link.');
+      setError('Failed to send reset link. Please verify the email address.');
     } finally {
       setLoading(false);
     }
@@ -63,7 +68,25 @@ export default function Login() {
           <p className="text-muted">Enter your email to receive a secure reset link.</p>
 
           {error && <div className="auth-error">{error}</div>}
-          {success && <div className="auth-success" style={{ color: 'var(--success-color)', background: 'rgba(16, 185, 129, 0.1)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem' }}>{success}</div>}
+          {success && (
+            <div className="auth-success" style={{ color: 'var(--success-color)', background: 'rgba(16, 185, 129, 0.1)', padding: '0.85rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem' }}>
+              <div>{success}</div>
+              {devResetLink && (
+                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px dashed rgba(16, 185, 129, 0.3)' }}>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                    Local Testing / SMTP Fallback:
+                  </div>
+                  <a
+                    href={devResetLink}
+                    className="btn btn-secondary"
+                    style={{ display: 'inline-block', fontSize: '0.8rem', padding: '0.4rem 0.8rem', textDecoration: 'none' }}
+                  >
+                    Click Here to Reset Password Directly
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
 
           <form onSubmit={handleForgotSubmit} className="auth-form">
             <div className="form-group">
@@ -81,7 +104,7 @@ export default function Login() {
             </button>
           </form>
           <p className="auth-footer text-muted">
-            Remembered your password? <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotMode(false); setSuccess(''); setError(''); }}>Sign in</a>
+            Remembered your password? <a href="#" onClick={(e) => { e.preventDefault(); setIsForgotMode(false); setSuccess(''); setError(''); setDevResetLink(''); }}>Sign in</a>
           </p>
         </div>
       </div>

@@ -28,10 +28,20 @@ else:
     }
 
 # ── Email / SMTP Configuration ─────────────────────────────────────────────────
+# Supports Gmail, SendGrid, Mailgun, Amazon SES, Outlook, or custom SMTP servers.
+# Load .env file automatically if python-dotenv is installed
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
 SMTP_CONFIG = {
-    'server':   os.environ.get('SMTP_SERVER',   'smtp.gmail.com'),
-    'port':     int(os.environ.get('SMTP_PORT', '587')),
-    'username': os.environ.get('SMTP_USERNAME', ''),
-    'password': os.environ.get('SMTP_PASSWORD', ''),
-    'app_url':  os.environ.get('APP_URL',       'http://localhost:5173'),
+    'server':      os.environ.get('SMTP_SERVER') or os.environ.get('MAIL_SERVER') or os.environ.get('EMAIL_HOST') or 'smtp.gmail.com',
+    'port':        int(os.environ.get('SMTP_PORT') or os.environ.get('MAIL_PORT') or os.environ.get('EMAIL_PORT') or 587),
+    'username':    os.environ.get('SMTP_USERNAME') or os.environ.get('SMTP_USER') or os.environ.get('MAIL_USERNAME') or os.environ.get('EMAIL_HOST_USER') or '',
+    'password':    os.environ.get('SMTP_PASSWORD') or os.environ.get('SMTP_PASS') or os.environ.get('MAIL_PASSWORD') or os.environ.get('EMAIL_HOST_PASSWORD') or '',
+    'sender_name': os.environ.get('SMTP_SENDER_NAME') or 'FinanceOS Security',
+    'from_email':  os.environ.get('SMTP_FROM') or os.environ.get('MAIL_FROM') or os.environ.get('EMAIL_FROM') or '',
+    'app_url':     (os.environ.get('APP_URL') or os.environ.get('FRONTEND_URL') or 'http://localhost:5173').rstrip('/'),
 }
