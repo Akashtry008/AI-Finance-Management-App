@@ -1412,6 +1412,59 @@ def update_security_lock_api(
         pattern=req.pattern
     )
 
+# ── SMTP Status & Verification ───────────────────────────────────────────────
+
+class TestSmtpReq(BaseModel):
+    recipient_email: Optional[str] = None
+
+
+@app.get("/system/smtp-status")
+def get_smtp_status(user_id: int = Depends(get_current_user)):
+    """Check SMTP configuration status without exposing sensitive credentials."""
+    from config import SMTP_CONFIG
+    user = SMTP_CONFIG.get("username", "").strip()
+    password = SMTP_CONFIG.get("password", "").strip()
+    is_configured = bool(user and password)
+    masked_user = ""
+    if user:
+        if "@" in user:
+            name, domain = user.split("@", 1)
+            masked_user = f"{name[:2]}***@{domain}"
+        else:
+            masked_user = f"{user[:2]}***"
+    return {
+        "is_configured": is_configured,
+        "server": SMTP_CONFIG.get("server", "smtp.gmail.com"),
+        "port": SMTP_CONFIG.get("port", 587),
+        "username_masked": masked_user,
+        "sender_name": SMTP_CONFIG.get("sender_name", "FinanceOS Security"),
+        "from_email": SMTP_CONFIG.get("from_email", ""),
+        "app_url": SMTP_CONFIG.get("app_url", "http://localhost:5173")
+    }
+
+
+@app.post("/system/test-smtp")
+def test_smtp_endpoint(req: Optional[TestSmtpReq] = None, user_id: int = Depends(get_current_user)):
+    """Dispatch a test email to verify configured SMTP credentials."""
+    from email_service import send_email
+    user_data = get_user_by_id(user_id)
+    target_email = req.recipient_email if (req and req.recipient_email) else (user_data.get("email") if user_data else "")
+    if not target_email:
+        raise HTTPException(status_code=400, detail="Recipient email address required.")
+
+    subject = "FinanceOS — SMTP Verification Test"
+    html_content = f"""
+    <div style="background:#0b0f19;color:#f3f4f6;padding:30px;font-family:sans-serif;border-radius:12px;max-width:500px;margin:0 auto;border:1px solid #1f2937;">
+      <h2 style="color:#6366f1;margin-top:0;">FinanceOS SMTP Connected!</h2>
+      <p>Congratulations! Your SMTP settings in FinanceOS are functioning perfectly.</p>
+      <p style="color:#9ca3af;font-size:12px;">Dispatched at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    </div>
+    """
+    success, msg = send_email(target_email, subject, html_content, "FinanceOS SMTP Test: Dispatched successfully.")
+    if not success:
+        raise HTTPException(status_code=500, detail=msg)
+    return {"success": True, "message": f"Test email successfully sent to {target_email}!"}
+
 
 if __name__ == "__main__":
     import uvicorn

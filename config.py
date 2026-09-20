@@ -1,6 +1,13 @@
 import os
 import urllib.parse
 
+# Load .env file automatically if python-dotenv is installed
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
+
 # ── Database Configuration ─────────────────────────────────────────────────────
 # Supports single connection URL (DATABASE_URL / MYSQL_URL) used by Railway, Render, etc.
 # Or individual environment variables (MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE).
@@ -29,13 +36,6 @@ else:
 
 # ── Email / SMTP Configuration ─────────────────────────────────────────────────
 # Supports Gmail, SendGrid, Mailgun, Amazon SES, Outlook, or custom SMTP servers.
-# Load .env file automatically if python-dotenv is installed
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except Exception:
-    pass
-
 SMTP_CONFIG = {
     'server':      os.environ.get('SMTP_SERVER') or os.environ.get('MAIL_SERVER') or os.environ.get('EMAIL_HOST') or 'smtp.gmail.com',
     'port':        int(os.environ.get('SMTP_PORT') or os.environ.get('MAIL_PORT') or os.environ.get('EMAIL_PORT') or 587),

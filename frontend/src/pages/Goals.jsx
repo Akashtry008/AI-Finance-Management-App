@@ -5,6 +5,7 @@ import api from '../api';
 import { Target, Plus, Trash2, Calendar, TrendingUp, X, Check, Award, Sparkles, Coins } from 'lucide-react';
 import { formatCurrency, getCurrencySymbol, formatErrorMessage } from '../utils';
 import { useDialog } from '../context/DialogContext';
+import { useTranslation } from '../i18n';
 import './Goals.css';
 
 function Modal({ title, onClose, children }) {
@@ -23,6 +24,7 @@ function Modal({ title, onClose, children }) {
 }
 
 export default function Goals() {
+  const { t, currentLang } = useTranslation();
   const { showConfirm, showAlert } = useDialog();
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -176,12 +178,12 @@ export default function Goals() {
       <div className="page-header">
         <div>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
-            <Target size={24} color="var(--accent-color)" /> Savings Goals
+            <Target size={24} color="var(--accent-color)" /> {t('goalsTitle', 'Savings Goals')}
           </h2>
-          <p className="text-muted" style={{ margin: '0.25rem 0 0' }}>Track and achieve your financial targets</p>
+          <p className="text-muted" style={{ margin: '0.25rem 0 0' }}>{t('goalsSubtitle', 'Track and achieve your financial targets')}</p>
         </div>
         <button className="btn btn-primary" onClick={openCreate}>
-          <Plus size={16} /> New Goal
+          <Plus size={16} /> {t('createGoal', 'New Goal')}
         </button>
       </div>
 
@@ -189,8 +191,8 @@ export default function Goals() {
         {goals.length === 0 ? (
           <div className="goal-empty-state glass-panel">
             <Target size={48} opacity={0.4} />
-            <h3>No active goals</h3>
-            <p>Create a savings goal to start tracking your progress.</p>
+            <h3>{t('noGoalsFound', 'No active goals')}</h3>
+            <p>{t('goalsSubtitle', 'Create a savings goal to start tracking your progress.')}</p>
           </div>
         ) : (
           goals.map(goal => {
@@ -213,7 +215,7 @@ export default function Goals() {
                       <h3 className="goal-card-title">{goal.name}</h3>
                       {isCompleted ? (
                         <span className="goal-badge-paid">
-                          <Check size={11} strokeWidth={3} /> Paid
+                          <Check size={11} strokeWidth={3} /> {t('paid', 'Paid')}
                         </span>
                       ) : (
                         (() => {
@@ -231,11 +233,11 @@ export default function Goals() {
                     </div>
                     {goal.deadline && (
                       <span className="goal-card-deadline">
-                        <Calendar size={12} /> {new Date(goal.deadline).toLocaleDateString('en-IN')}
+                        <Calendar size={12} /> {new Date(goal.deadline).toLocaleDateString(currentLang || 'en')}
                       </span>
                     )}
                   </div>
-                  <button className="goal-delete-btn" onClick={() => handleDelete(goal.id)} title="Delete Goal">
+                  <button className="goal-delete-btn" onClick={() => handleDelete(goal.id)} title={t('delete', 'Delete Goal')}>
                     <Trash2 size={16} />
                   </button>
                 </div>
@@ -243,7 +245,7 @@ export default function Goals() {
                 <div className="goal-progress-section">
                   <div className="goal-amounts">
                     <span className="goal-current">{formatCurrency(current)}</span>
-                    <span className="goal-target">of {formatCurrency(target)}</span>
+                    <span className="goal-target">{t('of', 'of')} {formatCurrency(target)}</span>
                   </div>
                   <div className="goal-progress-bar-container">
                     <div
@@ -257,13 +259,13 @@ export default function Goals() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.4rem' }}>
                     <span className="text-muted" style={{ fontSize: '0.78rem' }}>
                       {isCompleted ? (
-                        <span style={{ color: '#10b981', fontWeight: 600 }}>Target reached!</span>
+                        <span style={{ color: '#10b981', fontWeight: 600 }}>{t('targetReached', 'Target reached!')}</span>
                       ) : (
-                        `Remaining: ${formatCurrency(remainingNeeded)}`
+                        `${t('remaining', 'Remaining')}: ${formatCurrency(remainingNeeded)}`
                       )}
                     </span>
                     <span className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600 }}>
-                      {progress.toFixed(1)}% achieved
+                      {progress.toFixed(1)}% {t('achieved', 'achieved')}
                     </span>
                   </div>
                 </div>
@@ -271,15 +273,15 @@ export default function Goals() {
                 {goal.monthly_allocation > 0 && !isCompleted && (
                   <div className="goal-auto-save-box">
                     <span className="text-muted" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <Coins size={13} color="var(--accent-color)" /> Auto-Save Target:
+                      <Coins size={13} color="var(--accent-color)" /> {t('autoSaveTarget', 'Auto-Save Target')}:
                     </span>
-                    <strong>{formatCurrency(goal.monthly_allocation)}/mo</strong>
+                    <strong>{formatCurrency(goal.monthly_allocation)}/{t('month', 'mo')}</strong>
                   </div>
                 )}
 
                 {isCompleted ? (
                   <div className="goal-paid-state">
-                    <Check size={15} /> Goal Completed & Paid
+                    <Check size={15} /> {t('goalCompletedPaid', 'Goal Completed & Paid')}
                   </div>
                 ) : (
                   <div className="goal-card-actions">
@@ -287,15 +289,15 @@ export default function Goals() {
                       className="goal-add-funds-btn"
                       onClick={() => { setShowFundModal(goal); setFundAmount(''); }}
                     >
-                      <TrendingUp size={14} /> Add Funds
+                      <TrendingUp size={14} /> {t('addFunds', 'Add Funds')}
                     </button>
                     {goal.monthly_allocation > 0 && (
                       <button
                         className="goal-deposit-monthly-btn"
                         onClick={() => handleDepositMonthly(goal)}
-                        title={`Deposit monthly allocation (${formatCurrency(Math.min(goal.monthly_allocation, remainingNeeded))})`}
+                        title={`${t('depositMonthly', 'Deposit monthly allocation')} (${formatCurrency(Math.min(goal.monthly_allocation, remainingNeeded))})`}
                       >
-                        <Sparkles size={13} /> Deposit Monthly ({formatCurrency(Math.min(goal.monthly_allocation, remainingNeeded))})
+                        <Sparkles size={13} /> {t('depositMonthly', 'Deposit Monthly')} ({formatCurrency(Math.min(goal.monthly_allocation, remainingNeeded))})
                       </button>
                     )}
                   </div>
@@ -307,10 +309,10 @@ export default function Goals() {
       </div>
 
       {showModal && (
-        <Modal title="Create Savings Goal" onClose={() => setShowModal(false)}>
+        <Modal title={t('createGoal', 'Create Savings Goal')} onClose={() => setShowModal(false)}>
           <form onSubmit={handleCreate} className="modal-form">
             <div className="form-group">
-              <label>Goal Name</label>
+              <label>{t('goalName', 'Goal Name')}</label>
               <input
                 type="text"
                 placeholder="e.g. Vacation Fund, New Laptop..."
@@ -320,7 +322,7 @@ export default function Goals() {
               />
             </div>
             <div className="form-group">
-              <label>Target Amount ({getCurrencySymbol()})</label>
+              <label>{t('targetAmount', 'Target Amount')} ({getCurrencySymbol()})</label>
               <input
                 type="number"
                 step="0.01"
@@ -332,7 +334,7 @@ export default function Goals() {
               />
             </div>
             <div className="form-group">
-              <label>Virtual Monthly Allocation ({getCurrencySymbol()}) (Optional)</label>
+              <label>{t('monthlyAllocation', 'Virtual Monthly Allocation')} ({getCurrencySymbol()})</label>
               <input
                 type="number"
                 step="0.01"
@@ -346,7 +348,7 @@ export default function Goals() {
               </small>
             </div>
             <div className="form-group">
-              <label>Theme Color</label>
+              <label>{t('themeColor', 'Theme Color')}</label>
               <input
                 type="color"
                 value={form.color}
@@ -355,7 +357,7 @@ export default function Goals() {
               />
             </div>
             <div className="form-group">
-              <label>Target Date (Optional)</label>
+              <label>{t('deadline', 'Target Date')}</label>
               <input
                 type="date"
                 value={form.deadline}
@@ -363,10 +365,10 @@ export default function Goals() {
               />
             </div>
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>{t('cancel', 'Cancel')}</button>
               <button type="submit" className="btn btn-primary" disabled={submitting}>
                 <Check size={16} />
-                {submitting ? 'Creating...' : 'Create Goal'}
+                {submitting ? t('loading', 'Creating...') : t('createGoal', 'Create Goal')}
               </button>
             </div>
           </form>
@@ -379,7 +381,7 @@ export default function Goals() {
         const mRemaining = Math.max(0, mTarget - mCurrent);
 
         return (
-          <Modal title={`Add Funds — ${showFundModal.name}`} onClose={() => setShowFundModal(null)}>
+          <Modal title={`${t('addFunds', 'Add Funds')} — ${showFundModal.name}`} onClose={() => setShowFundModal(null)}>
             <form onSubmit={handleAddFunds} className="modal-form">
               <div className="goal-fund-summary" style={{
                 background: 'rgba(99, 102, 241, 0.08)',
@@ -392,19 +394,19 @@ export default function Goals() {
                 justifyContent: 'space-between'
               }}>
                 <div>
-                  <span className="text-muted">Target:</span> <strong>{formatCurrency(mTarget)}</strong>
+                  <span className="text-muted">{t('targetAmount', 'Target')}:</span> <strong>{formatCurrency(mTarget)}</strong>
                 </div>
                 <div>
-                  <span className="text-muted">Saved:</span> <strong>{formatCurrency(mCurrent)}</strong>
+                  <span className="text-muted">{t('currentSaved', 'Saved')}:</span> <strong>{formatCurrency(mCurrent)}</strong>
                 </div>
                 <div>
-                  <span className="text-muted">Remaining:</span> <strong style={{ color: '#10b981' }}>{formatCurrency(mRemaining)}</strong>
+                  <span className="text-muted">{t('remaining', 'Remaining')}:</span> <strong style={{ color: '#10b981' }}>{formatCurrency(mRemaining)}</strong>
                 </div>
               </div>
 
               <div className="form-group">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
-                  <label style={{ margin: 0 }}>Amount to Add ({getCurrencySymbol()})</label>
+                  <label style={{ margin: 0 }}>{t('amount', 'Amount to Add')} ({getCurrencySymbol()})</label>
                   {mRemaining > 0 && (
                     <button
                       type="button"
@@ -439,10 +441,10 @@ export default function Goals() {
               </div>
 
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowFundModal(null)}>Cancel</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowFundModal(null)}>{t('cancel', 'Cancel')}</button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
                   <Check size={16} />
-                  {submitting ? 'Adding...' : 'Confirm & Save'}
+                  {submitting ? t('loading', 'Adding...') : t('confirm', 'Confirm & Save')}
                 </button>
               </div>
             </form>

@@ -5,6 +5,7 @@ import {
   KeyRound, Grid3X3, Eye, EyeOff, Mail
 } from 'lucide-react';
 import api from '../api';
+import { useTranslation } from '../i18n';
 import './SecurityLockModal.css';
 
 export default function SecurityLockModal({
@@ -15,6 +16,7 @@ export default function SecurityLockModal({
   allowClose = false,
   initialMode = null
 }) {
+  const { t } = useTranslation();
   // Active lock type: 'pin' | 'password' | 'pattern'
   const [lockMode, setLockMode] = useState(
     () => (isSetupMode && initialMode) || localStorage.getItem('finance-os-security-mode') || 'pin'
@@ -336,7 +338,7 @@ export default function SecurityLockModal({
         </div>
 
         <h3 className="security-title">
-          {isSetupMode ? 'Configure Security Credentials' : 'FinanceOS Locked'}
+          {isSetupMode ? t('configureCredentials', 'Configure Security Credentials') : t('lockScreen', 'FinanceOS Locked')}
         </h3>
         <p className="security-subtitle">
           {getSubtitle()}
@@ -357,7 +359,7 @@ export default function SecurityLockModal({
                 setPinStep(1);
               }}
             >
-              <KeyRound size={14} /> PIN
+              <KeyRound size={14} /> {t('pin', 'PIN')}
             </button>
             <button
               type="button"
@@ -371,7 +373,7 @@ export default function SecurityLockModal({
                 setPasswordStep(1);
               }}
             >
-              <Lock size={14} /> Password
+              <Lock size={14} /> {t('password', 'Password')}
             </button>
             <button
               type="button"
@@ -385,7 +387,7 @@ export default function SecurityLockModal({
                 setPatternStep(1);
               }}
             >
-              <Grid3X3 size={14} /> Pattern
+              <Grid3X3 size={14} /> {t('pattern', 'Pattern')}
             </button>
           </div>
         )}

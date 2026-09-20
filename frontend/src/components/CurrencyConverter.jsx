@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { ArrowLeftRight, RefreshCw, X, Check, TrendingUp, Globe } from 'lucide-react';
 import { SUPPORTED_CURRENCIES, formatCurrency, getCurrencyInfo } from '../utils';
+import { useTranslation } from '../i18n';
 import './CurrencyConverter.css';
 
 // Baseline offline rates against USD in case of offline/network issues
@@ -29,6 +30,7 @@ const FALLBACK_USD_RATES = {
 };
 
 export default function CurrencyConverter({ isOpen, onClose }) {
+  const { t } = useTranslation();
   const activeCurrency = localStorage.getItem('finance-os-currency') || 'INR';
   const [fromCurrency, setFromCurrency] = useState(activeCurrency === 'USD' ? 'EUR' : 'USD');
   const [toCurrency, setToCurrency] = useState(activeCurrency);
@@ -122,11 +124,11 @@ export default function CurrencyConverter({ isOpen, onClose }) {
               <Globe size={20} />
             </div>
             <div>
-              <h3>Real-Time Currency Converter</h3>
-              <p className="text-muted">Live global exchange rates & platform currency manager</p>
+              <h3>{t('currencyConverter', 'Live Currency Converter')}</h3>
+              <p className="text-muted">{t('converterSubtitle', 'Real-time foreign exchange rates & platform currency manager')}</p>
             </div>
           </div>
-          <button className="btn btn-secondary modal-close" onClick={onClose} aria-label="Close modal">
+          <button className="btn btn-secondary modal-close" onClick={onClose} aria-label={t('close', 'Close modal')}>
             <X size={16} />
           </button>
         </div>
@@ -140,7 +142,7 @@ export default function CurrencyConverter({ isOpen, onClose }) {
         <div className="converter-body">
           {/* Amount input */}
           <div className="converter-input-group">
-            <label>Amount</label>
+            <label>{t('amount', 'Amount')}</label>
             <div className="converter-amount-wrapper">
               <span className="converter-amount-symbol">{fromInfo.symbol}</span>
               <input
@@ -173,7 +175,7 @@ export default function CurrencyConverter({ isOpen, onClose }) {
           {/* Currency selection row with swap */}
           <div className="converter-selector-row">
             <div className="converter-select-col">
-              <label>From</label>
+              <label>{t('convertFrom', 'From')}</label>
               <div className="select-with-flag">
                 <span className="currency-flag-preview">{fromInfo.flag}</span>
                 <select
@@ -194,14 +196,14 @@ export default function CurrencyConverter({ isOpen, onClose }) {
               type="button"
               className="converter-swap-btn"
               onClick={handleSwap}
-              title="Swap currencies"
-              aria-label="Swap currencies"
+              title={t('swapCurrencies', 'Swap currencies')}
+              aria-label={t('swapCurrencies', 'Swap currencies')}
             >
               <ArrowLeftRight size={18} />
             </button>
 
             <div className="converter-select-col">
-              <label>To</label>
+              <label>{t('convertTo', 'To')}</label>
               <div className="select-with-flag">
                 <span className="currency-flag-preview">{toInfo.flag}</span>
                 <select
@@ -221,7 +223,7 @@ export default function CurrencyConverter({ isOpen, onClose }) {
 
           {/* Result Card */}
           <div className="converter-result-card glass-panel">
-            <span className="converter-result-label text-muted">Converted Total:</span>
+            <span className="converter-result-label text-muted">{t('total', 'Converted Total')}:</span>
             <div className="converter-result-value">
               {formatCurrency(convertedAmount, toCurrency)}
             </div>
@@ -241,10 +243,10 @@ export default function CurrencyConverter({ isOpen, onClose }) {
               className="converter-refresh-btn"
               onClick={fetchRates}
               disabled={loading}
-              title="Refresh rates"
+              title={t('refresh', 'Refresh rates')}
             >
               <RefreshCw size={13} className={loading ? 'spin-icon' : ''} />
-              <span>Refresh</span>
+              <span>{t('refresh', 'Refresh')}</span>
             </button>
           </div>
 
@@ -255,7 +257,7 @@ export default function CurrencyConverter({ isOpen, onClose }) {
               className="converter-apply-btn"
               onClick={handleApplyBaseCurrency}
             >
-              <Check size={16} /> Set {toCurrency} as Platform Currency
+              <Check size={16} /> {t('setAsPlatformCurrency', 'Set as Platform Currency')} ({toCurrency})
             </button>
           </div>
         </div>

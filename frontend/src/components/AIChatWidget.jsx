@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import api from '../api';
 import { useDialog } from '../context/DialogContext';
+import { useTranslation } from '../i18n';
 import './AIChatWidget.css';
 
 const QUICK_PROMPTS = [
@@ -44,6 +45,7 @@ function FormattedText({ text, isStreaming }) {
 }
 
 export default function AIChatWidget() {
+  const { t } = useTranslation();
   const { showAlert } = useDialog();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -324,9 +326,9 @@ export default function AIChatWidget() {
     <div className="ai-chat-container">
       {/* Floating Toggle Button */}
       {!isOpen && (
-        <button className="ai-chat-toggle" onClick={() => setIsOpen(true)} title="Ask Financial AI">
+        <button className="ai-chat-toggle" onClick={() => setIsOpen(true)} title={t('aiAssistant', 'Ask Financial AI')}>
           <Sparkles className="sparkle-icon" size={20} />
-          <span>Ask AI</span>
+          <span>{t('askAi', 'Ask AI')}</span>
         </button>
       )}
 
@@ -338,18 +340,18 @@ export default function AIChatWidget() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <div className="ai-avatar"><Bot size={18} /></div>
               <div>
-                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600 }}>FinanceOS Assistant</h4>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 600 }}>{t('aiAssistant', 'FinanceOS Assistant')}</h4>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                   <span className="ai-status-dot"></span>
-                  <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 500 }}>Live Activity Feed</span>
+                  <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 500 }}>{t('liveFeed', 'Live Activity Feed')}</span>
                 </div>
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <button className="ai-chat-btn-icon" onClick={handleClearChat} title="Reset Chat">
+              <button className="ai-chat-btn-icon" onClick={handleClearChat} title={t('resetChat', 'Reset Chat')}>
                 <RotateCcw size={15} />
               </button>
-              <button className="ai-chat-btn-icon" onClick={() => setIsOpen(false)} title="Close Chat">
+              <button className="ai-chat-btn-icon" onClick={() => setIsOpen(false)} title={t('close', 'Close Chat')}>
                 <X size={16} />
               </button>
             </div>
@@ -434,7 +436,7 @@ export default function AIChatWidget() {
             <input
               ref={inputRef}
               type="text"
-              placeholder={isListening ? "Listening... speak now" : "Ask about budgets, spent, split debts..."}
+              placeholder={isListening ? "Listening... speak now" : t('askFinanceAI', "Ask about budgets, spent, split debts...")}
               value={input}
               onChange={e => setInput(e.target.value)}
               disabled={loading}
@@ -450,7 +452,7 @@ export default function AIChatWidget() {
             >
               {isListening ? <MicOff size={15} /> : <Mic size={15} />}
             </button>
-            <button type="submit" className="ai-send-btn" disabled={loading || !input.trim()}>
+            <button type="submit" className="ai-send-btn" disabled={loading || !input.trim()} title={t('send', 'Send')}>
               <Send size={14} />
             </button>
           </form>

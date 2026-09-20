@@ -11,16 +11,16 @@ import SecurityLockModal from './SecurityLockModal';
 import CursorGlow from './CursorGlow';
 import LanguageSwitcher from './LanguageSwitcher';
 import { isPrivacyModeActive, setPrivacyModeActive } from '../utils';
-import { getAppLanguage, t } from '../i18n';
+import { useTranslation } from '../i18n';
 import './Layout.css';
 
 export default function Layout() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const userKey = user?.username || 'user';
   const notifStorageKey = `finance-os-read-notifications-${userKey}`;
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [, setCurrentLang] = useState(getAppLanguage());
   const [, setCurrentCurrency] = useState(() => localStorage.getItem('finance-os-currency') || 'INR');
   const [notifications, setNotifications] = useState([]);
   const [readNotificationIds, setReadNotificationIds] = useState(() => {
@@ -69,16 +69,11 @@ export default function Layout() {
   }, []);
 
   useEffect(() => {
-    const handleLangChange = (e) => {
-      setCurrentLang(e.detail?.language || getAppLanguage());
-    };
     const handlePrivacy = (e) => {
       setIsPrivacy(e.detail?.isPrivacyMode ?? isPrivacyModeActive());
     };
-    window.addEventListener('languageChange', handleLangChange);
     window.addEventListener('privacyModeChange', handlePrivacy);
     return () => {
-      window.removeEventListener('languageChange', handleLangChange);
       window.removeEventListener('privacyModeChange', handlePrivacy);
     };
   }, []);
@@ -199,9 +194,9 @@ export default function Layout() {
         <div className="notification-dropdown glass-panel">
           <div className="notification-header">
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-              <h4>Notifications</h4>
+              <h4>{t('notifications', 'Notifications')}</h4>
               {unreadCount > 0 && (
-                <span className="notification-count-tag">{unreadCount} new</span>
+                <span className="notification-count-tag">{unreadCount} {t('new', 'new')}</span>
               )}
             </div>
             {unreadCount > 0 && (
@@ -209,10 +204,10 @@ export default function Layout() {
                 type="button"
                 className="mark-all-read-btn"
                 onClick={markAllNotificationsAsRead}
-                title="Mark all as read"
+                title={t('markAllRead', 'Mark all as read')}
               >
                 <CheckCheck size={13} />
-                <span>Mark all read</span>
+                <span>{t('markAllRead', 'Mark all read')}</span>
               </button>
             )}
           </div>
@@ -223,20 +218,20 @@ export default function Layout() {
               className={`notif-tab-pill ${notifFilter === 'all' ? 'active' : ''}`}
               onClick={() => setNotifFilter('all')}
             >
-              All ({notifications.length})
+              {t('all', 'All')} ({notifications.length})
             </button>
             <button
               type="button"
               className={`notif-tab-pill ${notifFilter === 'unread' ? 'active' : ''}`}
               onClick={() => setNotifFilter('unread')}
             >
-              Unread ({unreadCount})
+              {t('unread', 'Unread')} ({unreadCount})
             </button>
           </div>
 
           {displayedNotifications.length === 0 ? (
             <p className="no-notifications">
-              {notifFilter === 'unread' ? "No unread notifications!" : "You're all caught up!"}
+              {notifFilter === 'unread' ? t('noUnreadNotifs', 'No unread notifications!') : t('allCaughtUp', "You're all caught up!")}
             </p>
           ) : (
             <div className="notification-list">
@@ -256,13 +251,13 @@ export default function Layout() {
                         type="button"
                         className="notification-read-btn"
                         onClick={(e) => markNotificationAsRead(n.id, e)}
-                        title="Mark as read"
+                        title={t('read', 'Mark as read')}
                       >
                         <Check size={12} />
-                        <span>Read</span>
+                        <span>{t('read', 'Read')}</span>
                       </button>
                     ) : (
-                      <span className="notification-read-status" title="Read">
+                      <span className="notification-read-status" title={t('read', 'Read')}>
                         <Check size={11} />
                       </span>
                     )}
@@ -308,8 +303,8 @@ export default function Layout() {
                 setIsSetupMode(false);
                 setShowSecurityModal(true);
               }}
-              title="Lock Screen Directly"
-              aria-label="Lock Screen Directly"
+              title={t('lockScreen', 'Lock App')}
+              aria-label={t('lockScreen', 'Lock App')}
             >
               <Lock size={17} />
             </button>
@@ -319,7 +314,7 @@ export default function Layout() {
             className={`topbar-converter-icon-btn ${isPrivacy ? 'active-privacy' : ''}`}
             onClick={togglePrivacy}
             title={isPrivacy ? t('privacyDisable', 'Reveal Balances') : t('privacyEnable', 'Mask Balances (Privacy Mode)')}
-            aria-label="Toggle Privacy Mode"
+            aria-label={isPrivacy ? t('privacyDisable', 'Reveal Balances') : t('privacyEnable', 'Mask Balances (Privacy Mode)')}
           >
             {isPrivacy ? <EyeOff size={17} /> : <Eye size={17} />}
           </button>
@@ -327,8 +322,8 @@ export default function Layout() {
             type="button"
             className="topbar-converter-icon-btn"
             onClick={() => setShowConverter(true)}
-            title="Open Currency Converter"
-            aria-label="Open Currency Converter"
+            title={t('currencyConverter', 'Live Currency Converter')}
+            aria-label={t('currencyConverter', 'Live Currency Converter')}
           >
             <ArrowLeftRight size={17} />
           </button>
@@ -344,7 +339,7 @@ export default function Layout() {
         <div className="layout-topbar">
           <div className="layout-topbar-left">
             {!isOnline && (
-              <div className="topbar-offline-pill" title="You are currently offline. Changes cached locally.">
+              <div className="topbar-offline-pill" title={t('offlineMode', 'Offline Mode')}>
                 <WifiOff size={13} />
                 <span>{t('offlineMode', 'Offline Mode')}</span>
               </div>
@@ -360,7 +355,7 @@ export default function Layout() {
                   setIsSetupMode(false);
                   setShowSecurityModal(true);
                 }}
-                title="Lock Screen Directly"
+                title={t('lockScreen', 'Lock App')}
               >
                 <Lock size={14} />
                 <span>{t('lockScreen', 'Lock App')}</span>
@@ -382,7 +377,7 @@ export default function Layout() {
               type="button"
               className="topbar-converter-btn"
               onClick={() => setShowConverter(true)}
-              title="Open Live Currency Converter"
+              title={t('currencyConverter', 'Live Currency Converter')}
             >
               <ArrowLeftRight size={14} />
               <span>{t('converter', 'Converter')}</span>

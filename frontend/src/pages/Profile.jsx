@@ -9,6 +9,7 @@ import { SUPPORTED_CURRENCIES, setPlatformCurrency, formatErrorMessage } from '.
 import { downloadFinanceOsZipArchive } from '../utils/zipExport';
 import { useDialog } from '../context/DialogContext';
 import SecurityLockModal from '../components/SecurityLockModal';
+import { useTranslation } from '../i18n';
 import './Profile.css';
 
 const MONTHS = [
@@ -17,6 +18,7 @@ const MONTHS = [
 ];
 
 export default function Profile() {
+  const { t, currentLang } = useTranslation();
   const { showConfirm, showAlert } = useDialog();
   const [profile, setProfile] = useState({ username: '', email: '', display_name: '', theme: '', currency: 'INR', created_at: '' });
   const [passwords, setPasswords] = useState({ current_password: '', new_password: '', confirm_password: '' });
@@ -346,7 +348,7 @@ export default function Profile() {
                 title="Upload custom profile photo"
               >
                 <Camera size={13} />
-                <span>Change Photo</span>
+                <span>{t('changePhoto', 'Change Photo')}</span>
               </button>
               {avatarUrl && (
                 <button
@@ -356,25 +358,25 @@ export default function Profile() {
                   title="Remove custom photo"
                 >
                   <Trash2 size={13} />
-                  <span>Remove</span>
+                  <span>{t('removePhoto', 'Remove')}</span>
                 </button>
               )}
             </div>
           </div>
-          <p className="text-muted" style={{ margin: '0.25rem 0 0' }}>Manage your account settings & security</p>
+          <p className="text-muted" style={{ margin: '0.25rem 0 0' }}>{t('profileSubtitle', 'Manage your account settings & security')}</p>
         </div>
       </div>
 
       <div className="profile-content">
         <div className="profile-section glass-panel">
-          <h3><User size={20} /> Personal Information</h3>
+          <h3><User size={20} /> {t('personalInfo', 'Personal Information')}</h3>
           <form onSubmit={handleProfileSubmit} className="profile-form">
             <div className="profile-form-group">
-              <label>Username (Cannot be changed)</label>
+              <label>{t('username', 'Username')} (Cannot be changed)</label>
               <input type="text" value={profile.username} disabled />
             </div>
             <div className="profile-form-group">
-              <label>Display Name</label>
+              <label>{t('displayName', 'Display Name')}</label>
               <input 
                 type="text" 
                 value={profile.display_name} 
@@ -383,7 +385,7 @@ export default function Profile() {
               />
             </div>
             <div className="profile-form-group">
-              <label>Email Address</label>
+              <label>{t('emailAddress', 'Email Address')}</label>
               <input 
                 type="email" 
                 value={profile.email} 
@@ -392,7 +394,7 @@ export default function Profile() {
               />
             </div>
             <div className="profile-form-group">
-              <label>Preferred Currency (Global Platform)</label>
+              <label>{t('preferredCurrency', 'Preferred Currency')}</label>
               <select 
                 value={profile.currency} 
                 onChange={e => setProfile({...profile, currency: e.target.value})}
@@ -407,7 +409,7 @@ export default function Profile() {
             </div>
             
             <button type="submit" className="btn btn-primary" disabled={savingProfile} style={{ marginTop: '0.5rem' }}>
-              {savingProfile ? 'Saving...' : <><Save size={16} /> Save Changes</>}
+              {savingProfile ? t('loading', 'Saving...') : <><Save size={16} /> {t('saveChanges', 'Save Changes')}</>}
             </button>
             
             {profileMsg.text && (
@@ -420,10 +422,10 @@ export default function Profile() {
         </div>
 
         <div className="profile-section glass-panel">
-          <h3><Lock size={20} /> Change Password</h3>
+          <h3><Lock size={20} /> {t('changePassword', 'Change Password')}</h3>
           <form onSubmit={handlePasswordSubmit} className="profile-form">
             <div className="profile-form-group">
-              <label>Current Password</label>
+              <label>{t('currentPassword', 'Current Password')}</label>
               <input 
                 type="password" 
                 value={passwords.current_password} 
@@ -432,7 +434,7 @@ export default function Profile() {
               />
             </div>
             <div className="profile-form-group">
-              <label>New Password</label>
+              <label>{t('newPassword', 'New Password')}</label>
               <input 
                 type="password" 
                 value={passwords.new_password} 
@@ -441,7 +443,7 @@ export default function Profile() {
               />
             </div>
             <div className="profile-form-group">
-              <label>Confirm New Password</label>
+              <label>{t('confirmNewPassword', 'Confirm New Password')}</label>
               <input 
                 type="password" 
                 value={passwords.confirm_password} 
@@ -451,7 +453,7 @@ export default function Profile() {
             </div>
             
             <button type="submit" className="btn btn-secondary" disabled={savingPass} style={{ marginTop: '0.5rem' }}>
-              {savingPass ? 'Updating...' : <><Lock size={16} /> Update Password</>}
+              {savingPass ? t('loading', 'Updating...') : <><Lock size={16} /> {t('updatePassword', 'Update Password')}</>}
             </button>
             
             {passMsg.text && (
@@ -467,11 +469,11 @@ export default function Profile() {
         <div className="profile-section glass-panel" style={{ gridColumn: '1 / -1' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Shield size={20} color="#6366f1" /> Security & App Lock Screen
+              <Shield size={20} color="#6366f1" /> {t('securityLockTitle', 'Security & App Lock Screen')}
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <span style={{ fontSize: '0.82rem', fontWeight: 600, color: secEnabled ? '#10b981' : 'var(--text-muted)' }}>
-                {secEnabled ? 'Lock Enabled' : 'Lock Disabled'}
+                {secEnabled ? t('lockEnabled', 'Lock Enabled') : t('lockDisabled', 'Lock Disabled')}
               </span>
               <label className="switch-toggle" style={{ margin: 0 }}>
                 <input
@@ -494,7 +496,7 @@ export default function Profile() {
             </div>
           </div>
           <p className="text-muted" style={{ fontSize: '0.86rem', margin: '0 0 1rem 0' }}>
-            Configure your privacy lock to protect your financial records, budgets, and transactions from unauthorized viewing.
+            {t('securityLockDesc', 'Configure your privacy lock to protect your financial records, budgets, and transactions from unauthorized viewing.')}
           </p>
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -544,7 +546,7 @@ export default function Profile() {
                 setSecurityModalOpen(true);
               }}
             >
-              Configure Credentials (PIN / Password / Pattern)
+              {t('configureCredentials', 'Configure Credentials (PIN / Password / Pattern)')}
             </button>
 
             <button
@@ -556,7 +558,7 @@ export default function Profile() {
                 setSecurityModalOpen(true);
               }}
             >
-              <Lock size={13} /> Lock App Now
+              <Lock size={13} /> {t('lockNow', 'Lock App Now')}
             </button>
           </div>
         </div>
@@ -574,7 +576,7 @@ export default function Profile() {
         <div className="profile-section glass-panel" style={{ gridColumn: '1 / -1' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Database size={20} color="var(--accent-color)" /> Data Backup & Archival Portability
+              <Database size={20} color="var(--accent-color)" /> {t('dataBackup', 'Data Backup & Archival Portability')}
             </h3>
             <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
               100% Client & Server Data Portability
@@ -597,7 +599,7 @@ export default function Profile() {
             {/* Left: Scope Selection */}
             <div>
               <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--text-color)' }}>
-                Select Export Period Scope
+                {t('selectExportPeriod', 'Select Export Period Scope')}
               </label>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <select
@@ -605,10 +607,11 @@ export default function Profile() {
                   onChange={e => setBackupMonth(e.target.value)}
                   style={{ flex: 1, minWidth: '120px', padding: '0.5rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(0, 0, 0, 0.2)', color: 'var(--text-color)' }}
                 >
-                  <option value="all">All Months</option>
-                  {MONTHS.map((m, i) => (
-                    <option key={i} value={i + 1}>{m}</option>
-                  ))}
+                  <option value="all">{t('allMonths', 'All Months')}</option>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const mLabel = new Intl.DateTimeFormat(currentLang || 'en', { month: 'long' }).format(new Date(2024, i, 1));
+                    return <option key={i} value={i + 1}>{mLabel}</option>;
+                  })}
                 </select>
 
                 <select
@@ -616,7 +619,7 @@ export default function Profile() {
                   onChange={e => setBackupYear(e.target.value)}
                   style={{ flex: 1, minWidth: '100px', padding: '0.5rem', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.1)', background: 'rgba(0, 0, 0, 0.2)', color: 'var(--text-color)' }}
                 >
-                  <option value="all">All Years</option>
+                  <option value="all">{t('allYears', 'All Years')}</option>
                   {[2023, 2024, 2025, 2026].map(y => (
                     <option key={y} value={y}>{y}</option>
                   ))}
@@ -638,7 +641,7 @@ export default function Profile() {
                   style={{ flex: 1, minWidth: '150px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                 >
                   <Download size={14} />
-                  {exportingBackup ? 'Exporting JSON...' : '1-Click JSON Backup'}
+                  {exportingBackup ? t('loading', 'Exporting JSON...') : t('backupJson', '1-Click JSON Backup')}
                 </button>
 
                 <button
@@ -649,7 +652,7 @@ export default function Profile() {
                   style={{ flex: 1, minWidth: '170px', fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                 >
                   <FileArchive size={14} />
-                  {exportingZip ? 'Bundling ZIP...' : 'Download ZIP Archive (PDF + Excel + JSON)'}
+                  {exportingZip ? t('loading', 'Bundling ZIP...') : t('backupZip', 'Download ZIP Archive (PDF + Excel + JSON)')}
                 </button>
               </div>
 
@@ -665,7 +668,7 @@ export default function Profile() {
                   margin: 0
                 }}>
                   <Upload size={13} />
-                  {restoringData ? 'Restoring...' : 'Restore from JSON Backup'}
+                  {restoringData ? t('loading', 'Restoring...') : t('restoreData', 'Restore from JSON Backup')}
                   <input
                     type="file"
                     accept=".json,application/json"

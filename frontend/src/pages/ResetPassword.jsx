@@ -3,9 +3,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api';
 import { Lock, TrendingUp, CheckCircle } from 'lucide-react';
 import FloatingNodes from '../components/FloatingNodes';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useTranslation } from '../i18n';
 import './Auth.css';
 
 export default function ResetPassword() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
@@ -42,13 +45,16 @@ export default function ResetPassword() {
   if (success) {
     return (
       <div className="auth-page">
+        <div style={{ position: 'fixed', top: '1.25rem', right: '1.25rem', zIndex: 100 }}>
+          <LanguageSwitcher compact />
+        </div>
         <FloatingNodes count={30} />
         <div className="auth-card glass-panel animate-fade-in" style={{ textAlign: 'center', zIndex: 1 }}>
           <CheckCircle size={48} color="var(--success-color)" style={{ marginBottom: '1rem' }} />
           <h2>Password Reset Successful</h2>
           <p className="text-muted" style={{ marginBottom: '2rem' }}>You can now sign in with your new password.</p>
           <button className="btn btn-primary" onClick={() => navigate('/login')} style={{ width: '100%', justifyContent: 'center' }}>
-            Go to Login
+            {t('signIn', 'Go to Login')}
           </button>
         </div>
       </div>
@@ -57,13 +63,16 @@ export default function ResetPassword() {
 
   return (
     <div className="auth-page">
+      <div style={{ position: 'fixed', top: '1.25rem', right: '1.25rem', zIndex: 100 }}>
+        <LanguageSwitcher compact />
+      </div>
       <FloatingNodes count={30} />
       <div className="auth-card glass-panel animate-fade-in" style={{ zIndex: 1 }}>
         <div className="auth-logo">
           <TrendingUp size={32} color="#6366f1" />
           <h1>FinanceOS</h1>
         </div>
-        <h2>Create New Password</h2>
+        <h2>{t('resetPassword', 'Create New Password')}</h2>
         <p className="text-muted">Please enter a new password for your account.</p>
 
         {error && <div className="auth-error">{error}</div>}
@@ -71,21 +80,21 @@ export default function ResetPassword() {
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
-            <label><Lock size={14} /> New Password</label>
+            <label><Lock size={14} /> {t('newPassword', 'New Password')}</label>
             <input
               type="password"
-              placeholder="Enter new password"
+              placeholder={t('newPassword', 'Enter new password')}
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
             />
           </div>
           <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={loading || !token}>
-            {loading ? 'Resetting...' : 'Reset Password'}
+            {loading ? t('loading', 'Resetting...') : t('resetPassword', 'Reset Password')}
           </button>
         </form>
         <p className="auth-footer text-muted">
-          Back to <Link to="/login">Sign In</Link>
+          {t('back', 'Back to')} <Link to="/login">{t('signIn', 'Sign In')}</Link>
         </p>
       </div>
     </div>

@@ -18,6 +18,7 @@ import InstantReceiptModal from '../components/InstantReceiptModal';
 import ExportReportModal from '../components/ExportReportModal';
 import CsvImportModal from '../components/CsvImportModal';
 import MileageCalculatorModal from '../components/MileageCalculatorModal';
+import { useTranslation } from '../i18n';
 import './Transactions.css';
 
 const ITEMS_PER_PAGE = 10;
@@ -62,6 +63,7 @@ function Modal({ title, onClose, children }) {
 }
 
 export default function Transactions() {
+  const { t, currentLang } = useTranslation();
   const { showConfirm, showAlert } = useDialog();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -469,8 +471,8 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
     <div className="transactions-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h2>Transactions</h2>
-          <p className="text-muted">Track your income and expenses with instant digital vouchers</p>
+          <h2>{t('transactions', 'Transactions')}</h2>
+          <p className="text-muted">{t('transactionsSubtitle', 'Track your income and expenses with instant digital vouchers')}</p>
         </div>
         <div className="txn-action-buttons">
           <button
@@ -480,7 +482,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
             title="Calculate distance reimbursement and auto-log travel (#Mileage)"
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            <Car size={15} /> Mileage
+            <Car size={15} /> {t('mileageCalc', 'Mileage')}
           </button>
           <button
             type="button"
@@ -489,7 +491,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
             title="Batch import Splitwise, bank, or spreadsheet CSV"
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            <FileSpreadsheet size={15} /> Import CSV
+            <FileSpreadsheet size={15} /> {t('importCsv', 'Import CSV')}
           </button>
           <button 
             className="btn btn-whatsapp" 
@@ -497,7 +499,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
             disabled={filtered.length === 0} 
             title="Share Transactions Summary via WhatsApp"
           >
-            <MessageCircle size={15} /> WhatsApp
+            <MessageCircle size={15} /> {t('shareWhatsApp', 'WhatsApp')}
           </button>
           <button 
             className="btn btn-secondary" 
@@ -505,7 +507,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
             disabled={filtered.length === 0} 
             title="Export Report (PDF or Excel Table)"
           >
-            <FileDown size={16} /> Export Report
+            <FileDown size={16} /> {t('exportReport', 'Export Report')}
           </button>
           <input 
             type="file" 
@@ -516,10 +518,10 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
           />
           <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()} disabled={scanning}>
             <Camera size={16} />
-            {scanning ? 'Scanning...' : 'Scan Receipt'}
+            {scanning ? t('loading', 'Scanning...') : t('scanReceipt', 'Scan Receipt')}
           </button>
           <button className="btn btn-primary" onClick={openAdd}>
-            <Plus size={16} /> Add Transaction
+            <Plus size={16} /> {t('addTransaction', 'Add Transaction')}
           </button>
         </div>
       </div>
@@ -528,22 +530,25 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
         <div className="txn-filters">
           <Filter size={16} className="text-muted" />
           <select value={month} onChange={e => setMonth(Number(e.target.value))}>
-            {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            {Array.from({ length: 12 }, (_, i) => {
+              const monthLabel = new Intl.DateTimeFormat(currentLang || 'en', { month: 'long' }).format(new Date(2024, i, 1));
+              return <option key={i} value={i + 1}>{monthLabel}</option>;
+            })}
           </select>
           <select value={year} onChange={e => setYear(Number(e.target.value))}>
             {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
           </select>
           <div className="type-filter">
-            {['all','income','expense'].map(t => (
-              <button key={t} className={`type-btn ${filterType === t ? 'type-btn--active' : ''}`}
-                onClick={() => setFilterType(t)}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
+            {['all','income','expense'].map(tKey => (
+              <button key={tKey} className={`type-btn ${filterType === tKey ? 'type-btn--active' : ''}`}
+                onClick={() => setFilterType(tKey)}>
+                {t(tKey, tKey.charAt(0).toUpperCase() + tKey.slice(1))}
               </button>
             ))}
           </div>
         </div>
         <span className="text-muted" style={{fontSize:'0.85rem'}}>
-          {filtered.length} record{filtered.length !== 1 ? 's' : ''}
+          {filtered.length} {filtered.length !== 1 ? t('records', 'records') : t('record', 'record')}
         </span>
       </div>
 
@@ -552,7 +557,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
         <div className="hashtag-chips-bar glass-panel animate-fade-in">
           <div className="hashtag-chips-label">
             <Hash size={14} color="var(--accent-color)" />
-            <span>Event Bundles:</span>
+            <span>{t('eventBundles', 'Event Bundles:')}</span>
           </div>
           <div className="hashtag-chips-scroll">
             <button
@@ -560,7 +565,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
               className={`hashtag-chip ${selectedTag === null ? 'active' : ''}`}
               onClick={() => setSelectedTag(null)}
             >
-              All
+              {t('all', 'All')}
             </button>
             {extractedTags.map(tagObj => (
               <button
@@ -589,9 +594,9 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
               <span>{selectedTag}</span>
             </div>
             <div className="bundle-stats">
-              <span>Total: <strong>{formatCurrency(bundleTotal)}</strong></span>
+              <span>{t('total', 'Total')}: <strong>{formatCurrency(bundleTotal)}</strong></span>
               <span className="bundle-stat-dot">•</span>
-              <span>Count: <strong>{filtered.length} entries</strong></span>
+              <span>{filtered.length} {filtered.length !== 1 ? t('records', 'entries') : t('record', 'entry')}</span>
               <span className="bundle-stat-dot">•</span>
               <span>Avg: <strong>{formatCurrency(bundleAvg)}</strong></span>
             </div>
@@ -605,13 +610,13 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
               title="Share event breakdown via WhatsApp"
               style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
             >
-              <MessageCircle size={14} /> Share Bundle
+              <MessageCircle size={14} /> {t('shareBundle', 'Share Bundle')}
             </button>
             <button
               type="button"
               className="bundle-close-btn"
               onClick={() => setSelectedTag(null)}
-              title="Clear event filter"
+              title={t('clearFilter', 'Clear event filter')}
             >
               <X size={15} />
             </button>
@@ -620,43 +625,43 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
       )}
 
       {loading ? (
-        <div className="loading-state text-muted">Loading transactions...</div>
+        <div className="loading-state text-muted">{t('loading', 'Loading transactions...')}</div>
       ) : filtered.length === 0 ? (
         <div className="empty-state glass-panel">
-          <p className="text-muted">No transactions found. Click "Add Transaction" to get started.</p>
+          <p className="text-muted">{t('noTransactionsFound', 'No transactions found. Click "Add Transaction" to get started.')}</p>
         </div>
       ) : (
         <div className="glass-panel txn-table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Type</th>
-                <th>Category</th>
-                <th>Description</th>
-                <th>Date</th>
-                <th>Amount</th>
-                <th>Actions</th>
+                <th>{t('type', 'Type')}</th>
+                <th>{t('category', 'Category')}</th>
+                <th>{t('description', 'Description')}</th>
+                <th>{t('date', 'Date')}</th>
+                <th>{t('amount', 'Amount')}</th>
+                <th>{t('actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody>
-              {paginated.map(t => (
-                <tr key={t.id}>
+              {paginated.map(txn => (
+                <tr key={txn.id}>
                   <td>
-                    <span className={`txn-badge ${t.category_type === 'income' ? 'badge-income' : 'badge-expense'}`}>
-                      {t.category_type === 'income'
+                    <span className={`txn-badge ${txn.category_type === 'income' ? 'badge-income' : 'badge-expense'}`}>
+                      {txn.category_type === 'income'
                         ? <ArrowUpCircle size={13} />
                         : <ArrowDownCircle size={13} />}
-                      {t.category_type}
+                      {t(txn.category_type, txn.category_type)}
                     </span>
                   </td>
                   <td style={{ fontWeight: 600 }}>
-                    {t.category_name || '—'}
+                    {txn.category_name || '—'}
                   </td>
                   <td className="text-muted txn-desc-cell">
-                    <span>{t.description || '—'}</span>
-                    {t.tags && (
+                    <span>{txn.description || '—'}</span>
+                    {txn.tags && (
                       <div className="txn-tags-row">
-                        {t.tags.split(',').map(tag => tag.trim()).filter(Boolean).map(tag => {
+                        {txn.tags.split(',').map(tag => tag.trim()).filter(Boolean).map(tag => {
                           const display = tag.startsWith('#') ? tag : `#${tag}`;
                           return (
                             <span
@@ -673,32 +678,32 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
                     )}
                   </td>
                   <td className="text-muted" style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                    {t.txn_date}
+                    {txn.txn_date}
                   </td>
-                  <td className={t.category_type === 'income' ? 'text-success' : 'text-danger'} style={{fontWeight:600, whiteSpace: 'nowrap'}}>
-                    {t.category_type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
+                  <td className={txn.category_type === 'income' ? 'text-success' : 'text-danger'} style={{fontWeight:600, whiteSpace: 'nowrap'}}>
+                    {txn.category_type === 'income' ? '+' : '-'}{formatCurrency(txn.amount)}
                   </td>
                   <td>
                     <div className="action-btns">
                       <button
                         className="btn btn-secondary icon-btn receipt-btn"
                         onClick={() => setSelectedReceipt({
-                          id: t.id,
-                          type: t.category_type,
-                          category: t.category_name,
-                          description: t.description,
-                          amount: t.amount,
-                          date: t.txn_date,
+                          id: txn.id,
+                          type: txn.category_type,
+                          category: txn.category_name,
+                          description: txn.description,
+                          amount: txn.amount,
+                          date: txn.txn_date,
                           currency: localStorage.getItem('finance-os-currency') || 'INR'
                         })}
-                        title="View Instant Digital Receipt & Share"
+                        title={t('receipt', 'View Instant Digital Receipt & Share')}
                       >
                         <Receipt size={14} />
                       </button>
-                      <button className="btn btn-secondary icon-btn" onClick={() => openEdit(t)} title="Edit">
+                      <button className="btn btn-secondary icon-btn" onClick={() => openEdit(txn)} title={t('edit', 'Edit')}>
                         <Pencil size={14} />
                       </button>
-                      <button className="btn btn-danger icon-btn" onClick={() => handleDelete(t.id)} title="Delete">
+                      <button className="btn btn-danger icon-btn" onClick={() => handleDelete(txn.id)} title={t('delete', 'Delete')}>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -715,17 +720,17 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
                 disabled={currentPage === 1} 
                 onClick={() => setCurrentPage(p => p - 1)}
               >
-                Prev
+                {t('prev', 'Prev')}
               </button>
               <span className="text-muted" style={{ fontSize: '0.9rem' }}>
-                Page {currentPage} of {totalPages}
+                {t('page', 'Page')} {currentPage} {t('of', 'of')} {totalPages}
               </span>
               <button 
                 className="btn btn-secondary" 
                 disabled={currentPage === totalPages} 
                 onClick={() => setCurrentPage(p => p + 1)}
               >
-                Next
+                {t('next', 'Next')}
               </button>
             </div>
           )}
@@ -733,7 +738,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
       )}
 
       {showModal && (
-        <Modal title={editTxn ? 'Edit Transaction' : 'Add Transaction'} onClose={() => setShowModal(false)}>
+        <Modal title={editTxn ? t('editTransaction', 'Edit Transaction') : t('addTransaction', 'Add Transaction')} onClose={() => setShowModal(false)}>
           <form onSubmit={handleSubmit} className="modal-form">
             {error && <div className="auth-error" style={{marginBottom:'1rem'}}>{error}</div>}
 
@@ -754,10 +759,10 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
                   <Sparkles size={18} color="#6366f1" />
                   <div>
                     <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-color)' }}>
-                      Auto-fill from Bill or Receipt
+                      {t('autoFillFromBill', 'Auto-fill from Bill or Receipt')}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      AI reads merchant, total amount, date & category
+                      {t('aiReadsBill', 'AI reads merchant, total amount, date & category')}
                     </div>
                   </div>
                 </div>
@@ -769,7 +774,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
                   disabled={scanning}
                 >
                   <Camera size={14} />
-                  <span>{scanning ? 'Scanning...' : 'Upload Bill Photo'}</span>
+                  <span>{scanning ? t('loading', 'Scanning...') : t('uploadBillPhoto', 'Upload Bill Photo')}</span>
                 </button>
               </div>
             )}
@@ -789,20 +794,20 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
               }}>
                 <CheckCircle2 size={16} color="#10b981" />
                 <span>
-                  Bill Scanned: Detected <strong>{getCurrencySymbol()}{scanBanner.amount}</strong> at <strong>{scanBanner.merchant}</strong> ({scanBanner.category}). Details auto-filled below!
+                  {t('billScannedSuccess', 'Bill Scanned')}: Detected <strong>{getCurrencySymbol()}{scanBanner.amount}</strong> at <strong>{scanBanner.merchant}</strong> ({scanBanner.category}). Details auto-filled below!
                 </span>
               </div>
             )}
 
             <div className="form-group">
-              <label>Category</label>
+              <label>{t('category', 'Category')}</label>
               <select value={form.category_id} onChange={e => setForm({...form, category_id: e.target.value})} required>
-                <option value="">Select category...</option>
+                <option value="">{t('selectCategory', 'Select category...')}</option>
                 {['expense', 'income'].map(type => {
                   const items = displayCategories.filter(c => (c.type || 'expense').toLowerCase() === type);
                   if (items.length === 0) return null;
                   return (
-                    <optgroup key={type} label={type === 'expense' ? 'Expenses' : 'Income'}>
+                    <optgroup key={type} label={type === 'expense' ? t('expenses', 'Expenses') : t('incomes', 'Income')}>
                       {items.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
@@ -812,17 +817,17 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
               </select>
             </div>
             <div className="form-group">
-              <label>Amount ({getCurrencySymbol()})</label>
+              <label>{t('amount', 'Amount')} ({getCurrencySymbol()})</label>
               <input type="number" step="0.01" min="0.01" placeholder="0.00"
                 value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required />
             </div>
             <div className="form-group">
-              <label>Date</label>
+              <label>{t('date', 'Date')}</label>
               <input type="date" value={form.txn_date}
                 onChange={e => setForm({...form, txn_date: e.target.value})} required />
             </div>
             <div className="form-group merchant-suggest-wrapper">
-              <label>Description / Merchant (optional)</label>
+              <label>{t('description', 'Description')} / {t('merchant', 'Merchant')}</label>
               <input
                 type="text"
                 placeholder="e.g. Starbucks, Amazon, Groceries..."
@@ -856,7 +861,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
             </div>
 
             <div className="form-group">
-              <label>Custom Tags (optional, comma-separated)</label>
+              <label>{t('tags', 'Tags')}</label>
               <input
                 type="text"
                 placeholder="e.g. dining, trip, groceries, urgent"
@@ -879,7 +884,7 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
             </div>
             {splitGroups && splitGroups.length > 0 && !editTxn && (
               <div className="form-group">
-                <label>Split with Group (Optional)</label>
+                <label>Split with Group</label>
                 <select
                   value={form.split_group_id || ''}
                   onChange={e => setForm({...form, split_group_id: e.target.value})}
@@ -897,10 +902,10 @@ ${filtered.slice(0, 15).map((t, idx) => `${idx + 1}. ${t.description} — ${form
               </div>
             )}
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>{t('cancel', 'Cancel')}</button>
               <button type="submit" className="btn btn-primary" disabled={submitting}>
                 <Check size={16} />
-                {submitting ? 'Saving...' : editTxn ? 'Update' : 'Add Transaction'}
+                {submitting ? t('loading', 'Saving...') : editTxn ? t('edit', 'Update') : t('addTransaction', 'Add Transaction')}
               </button>
             </div>
           </form>

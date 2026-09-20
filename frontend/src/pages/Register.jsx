@@ -3,9 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { UserPlus, User, Lock, TrendingUp, Mail, Sparkles } from 'lucide-react';
 import FloatingNodes from '../components/FloatingNodes';
+import LanguageSwitcher from '../components/LanguageSwitcher';
+import { useTranslation } from '../i18n';
 import './Auth.css';
 
 export default function Register() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -30,6 +33,9 @@ export default function Register() {
 
   return (
     <div className="auth-page">
+      <div style={{ position: 'fixed', top: '1.25rem', right: '1.25rem', zIndex: 100 }}>
+        <LanguageSwitcher compact />
+      </div>
       <FloatingNodes count={30} />
       <div className="auth-card glass-panel animate-fade-in" style={{ zIndex: 1 }}>
         <div className="auth-logo">
@@ -37,38 +43,38 @@ export default function Register() {
           <h1>FinanceOS</h1>
         </div>
 
-        <h2>Create Account</h2>
-        <p className="text-muted">Start your unrestricted financial journey today</p>
+        <h2>{t('createAccount', 'Create Account')}</h2>
+        <p className="text-muted">{t('createAccountSubtitle', 'Start your unrestricted financial journey today')}</p>
 
         {error && <div className="auth-error">{error}</div>}
         {success && <div className="auth-success">{success}</div>}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
-            <label><User size={14} /> Username</label>
+            <label><User size={14} /> {t('username', 'Username')}</label>
             <input
               type="text"
-              placeholder="Choose a username"
+              placeholder={t('username', 'Choose a username')}
               value={form.username}
               onChange={e => setForm({ ...form, username: e.target.value })}
               required
             />
           </div>
           <div className="form-group">
-            <label><Mail size={14} /> Email Address</label>
+            <label><Mail size={14} /> {t('emailAddress', 'Email Address')}</label>
             <input
               type="email"
-              placeholder="Enter your email"
+              placeholder={t('emailAddress', 'Enter your email')}
               value={form.email}
               onChange={e => setForm({ ...form, email: e.target.value })}
               required
             />
           </div>
           <div className="form-group">
-            <label><Lock size={14} /> Password</label>
+            <label><Lock size={14} /> {t('currentPassword', 'Password')}</label>
             <input
               type="password"
-              placeholder="Create a password"
+              placeholder={t('currentPassword', 'Create a password')}
               value={form.password}
               onChange={e => setForm({ ...form, password: e.target.value })}
               required
@@ -76,11 +82,11 @@ export default function Register() {
           </div>
           <button type="submit" className="btn btn-primary" style={{width:'100%'}} disabled={loading}>
             <UserPlus size={16} />
-            {loading ? 'Creating Account...' : 'Create Account'}
+            {loading ? t('loading', 'Creating Account...') : t('createAccount', 'Create Account')}
           </button>
         </form>
         <p className="auth-footer text-muted">
-          Already have an account? <Link to="/login">Sign In</Link>
+          {t('alreadyHaveAccount', 'Already have an account?')} <Link to="/login">{t('signIn', 'Sign In')}</Link>
         </p>
       </div>
     </div>
