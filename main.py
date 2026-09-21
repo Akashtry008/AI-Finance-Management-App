@@ -1466,6 +1466,81 @@ def test_smtp_endpoint(req: Optional[TestSmtpReq] = None, user_id: int = Depends
     return {"success": True, "message": f"Test email successfully sent to {target_email}!"}
 
 
+class SmtpConfigReq(BaseModel):
+    server: Optional[str] = "smtp.gmail.com"
+    port: Optional[int] = 587
+    username: str
+    password: str
+    sender_name: Optional[str] = "FinanceOS Security"
+    from_email: Optional[str] = None
+
+
+@app.post("/system/smtp-config")
+def update_smtp_config(req: SmtpConfigReq, user_id: int = Depends(get_current_user)):
+    """Update and persist SMTP server and credential configuration."""
+    import re
+    from config import SMTP_CONFIG
+
+    server = (req.server or "smtp.gmail.com").strip()
+    port = int(req.port or 587)
+    username = (req.username or "").strip()
+    password = (req.password or "").strip()
+    sender_name = (req.sender_name or "FinanceOS Security").strip()
+    from_email = (req.from_email or username).strip()
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="SMTP username and password are required.")
+
+    # Update in-memory configuration
+    SMTP_CONFIG["server"] = server
+    SMTP_CONFIG["port"] = port
+    SMTP_CONFIG["username"] = username
+    SMTP_CONFIG["password"] = password
+    SMTP_CONFIG["sender_name"] = sender_name
+    SMTP_CONFIG["from_email"] = from_email
+
+    # Also update environment variables in current process
+    os.environ["SMTP_SERVER"] = server
+    os.environ["SMTP_PORT"] = str(port)
+    os.environ["SMTP_USERNAME"] = username
+    os.environ["SMTP_PASSWORD"] = password
+    os.environ["SMTP_SENDER_NAME"] = sender_name
+    os.environ["SMTP_FROM"] = from_email
+
+    # Persist into root .env file
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            updates = {
+                "SMTP_SERVER": server,
+                "SMTP_PORT": str(port),
+                "SMTP_USERNAME": username,
+                "SMTP_PASSWORD": password,
+                "SMTP_FROM": from_email,
+                "SMTP_SENDER_NAME": sender_name
+            }
+
+            for key, val in updates.items():
+                pattern = rf"^{key}=.*$"
+                if re.search(pattern, content, flags=re.MULTILINE):
+                    content = re.sub(pattern, f"{key}={val}", content, flags=re.MULTILINE)
+                else:
+                    content += f"\n{key}={val}"
+
+            with open(env_path, "w", encoding="utf-8") as f:
+                f.write(content)
+        except Exception as e:
+            print(f"[WARN] Failed to write .env file: {e}")
+
+    return {
+        "success": True,
+        "message": "SMTP configuration updated and persisted successfully!"
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     host = os.environ.get("HOST", "127.0.0.1")

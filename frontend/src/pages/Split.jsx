@@ -19,6 +19,7 @@ import {
 import { useDialog } from '../context/DialogContext';
 import InstantReceiptModal from '../components/InstantReceiptModal';
 import ExportReportModal from '../components/ExportReportModal';
+import { useTranslation } from '../i18n';
 import './Split.css';
 
 function Modal({ title, onClose, children }) {
@@ -39,6 +40,7 @@ function Modal({ title, onClose, children }) {
 export default function Split() {
   const { user } = useAuth();
   const { showConfirm, showAlert } = useDialog();
+  const { t, currentLang } = useTranslation();
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [members, setMembers] = useState([]);
@@ -830,28 +832,28 @@ export default function Split() {
     }
   };
 
-  if (loading) return <div className="loading-state">Loading groups...</div>;
+  if (loading) return <div className="loading-state">{t('loadingData', 'Loading groups...')}</div>;
 
   // Group list view
   if (!selectedGroup) return (
     <div className="split-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h2>Split Expenses</h2>
-          <p className="text-muted">Share and settle expenses with friends</p>
+          <h2>{t('splitExpensesTitle', 'Split Expenses')}</h2>
+          <p className="text-muted">{t('splitExpensesSubtitle', 'Share and settle expenses with friends')}</p>
         </div>
         <button className="btn btn-primary" onClick={() => { setError(''); setShowGroupModal(true); }}>
-          <Plus size={16}/> New Group
+          <Plus size={16}/> {t('newGroup', 'New Group')}
         </button>
       </div>
 
       {groups.length === 0 ? (
         <div className="split-empty glass-panel">
           <Users size={48} className="text-muted" style={{marginBottom:'1rem'}}/>
-          <h3>No groups yet</h3>
-          <p className="text-muted">Create a group to start splitting expenses with friends.</p>
+          <h3>{t('noGroupsYet', 'No groups yet')}</h3>
+          <p className="text-muted">{t('createGroupDesc', 'Create a group to start splitting expenses with friends.')}</p>
           <button className="btn btn-primary" style={{marginTop:'1rem'}} onClick={() => setShowGroupModal(true)}>
-            <Plus size={16}/> Create First Group
+            <Plus size={16}/> {t('createFirstGroup', 'Create First Group')}
           </button>
         </div>
       ) : (
@@ -864,13 +866,13 @@ export default function Split() {
               </div>
               {g.description && <p className="text-muted split-group-desc">{g.description}</p>}
               <div className="split-group-meta">
-                <span className="split-meta-badge"><Users size={12}/> {g.member_count} members</span>
-                <span className="split-meta-badge"><Receipt size={12}/> {g.expense_count} expenses</span>
+                <span className="split-meta-badge"><Users size={12}/> {g.member_count} {t('membersCount', 'members')}</span>
+                <span className="split-meta-badge"><Receipt size={12}/> {g.expense_count} {t('expensesCount', 'expenses')}</span>
               </div>
               {g.target_budget && (
                 <div style={{ marginTop: '0.6rem', background: 'rgba(255,255,255,0.03)', padding: '0.45rem 0.6rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '4px' }}>
-                    <span className="text-muted">Trip Target:</span>
+                    <span className="text-muted">{t('tripTarget', 'Trip Target')}:</span>
                     <span style={{ fontWeight: 600 }}>{formatCurrency(g.total_spent || 0)} / {formatCurrency(g.target_budget)}</span>
                   </div>
                   <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
@@ -963,7 +965,7 @@ export default function Split() {
             onClick={handleShareWhatsApp} 
             title="Share formatted settlement summary directly to WhatsApp"
           >
-            <MessageCircle size={15} /> Share on WhatsApp
+            <MessageCircle size={15} /> {t('shareWhatsApp', 'Share on WhatsApp')}
           </button>
           
           <button 
@@ -973,7 +975,7 @@ export default function Split() {
             title="Copy settlement summary to clipboard for Telegram/iMessage/Email"
           >
             {copiedSummary ? <CheckCheck size={15} color="#34d399" /> : <Copy size={15} />}
-            <span>{copiedSummary ? 'Copied!' : 'Copy'}</span>
+            <span>{copiedSummary ? t('copied', 'Copied!') : t('share', 'Copy')}</span>
           </button>
 
           <button 
@@ -982,7 +984,7 @@ export default function Split() {
             onClick={() => handleOpenQrModal(selectedGroup)} 
             title="Invite Friends via Live QR Code"
           >
-            <QrCode size={15} /> Invite QR
+            <QrCode size={15} /> {t('inviteQr', 'Invite QR')}
           </button>
 
           <button 
@@ -991,24 +993,14 @@ export default function Split() {
             onClick={() => setShowExportModal(true)} 
             title="Export Trip Report (PDF or Excel Table)"
           >
-            <FileDown size={15} /> Export Report
-          </button>
-
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowSettlementModal(true)}
-            title="View complete settlement history log"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-          >
-            <RotateCcw size={15} /> History ({settlements.length})
+            <FileDown size={15} /> {t('export', 'Export Report')}
           </button>
 
           <button type="button" className="btn btn-secondary" onClick={openMemberModal}>
-            <UserPlus size={15}/> Add Member
+            <UserPlus size={15}/> {t('addMember', 'Add Member')}
           </button>
           <button type="button" className="btn btn-primary" onClick={openAddExpenseModal}>
-            <Plus size={15}/> Add Expense
+            <Plus size={15}/> {t('addExpense', 'Add Expense')}
           </button>
           <button type="button" className="btn btn-danger" style={{padding:'0.55rem 0.85rem'}} onClick={() => handleDeleteGroup(selectedGroup.id)} title="Delete Group">
             <Trash2 size={15}/>

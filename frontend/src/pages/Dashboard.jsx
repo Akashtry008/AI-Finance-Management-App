@@ -24,7 +24,7 @@ import { useDialog } from '../context/DialogContext';
 import { getRecurringBills, getBillDueStatus, markBillAsPaid, syncRecurringBillsWithBackend } from '../recurringBillsStore';
 import ExportReportModal from '../components/ExportReportModal';
 import FinancialHealthCard from '../components/FinancialHealthCard';
-import { useTranslation } from '../i18n';
+import { useTranslation, formatMonthName } from '../i18n';
 import './Dashboard.css';
 
 const PIE_COLORS = ['#10b981','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
@@ -61,7 +61,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 export default function Dashboard() {
   const { user } = useAuth();
   const { showAlert } = useDialog();
-  const { t } = useTranslation();
+  const { t, currentLang } = useTranslation();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -438,15 +438,14 @@ export default function Dashboard() {
     }
   };
 
-  const months = ['January','February','March','April','May','June',
-    'July','August','September','October','November','December'];
+  const months = Array.from({ length: 12 }, (_, i) => formatMonthName(i + 1, currentLang));
 
   return (
     <div className="dashboard animate-fade-in">
       <div className="dashboard-header">
         <div>
           <h2>{t('dashboard', 'Dashboard')}</h2>
-          <p className="text-muted">Welcome back, <strong>{user?.username}</strong> — Financial overview & insights</p>
+          <p className="text-muted">{t('welcomeBackUser', 'Welcome back')}, <strong>{user?.username}</strong> — {t('financialOverview', 'Financial overview & insights')}</p>
         </div>
         <div className="dashboard-filters">
           <div className="view-mode-pill">
@@ -455,7 +454,7 @@ export default function Dashboard() {
               className={`view-mode-btn ${viewMode === 'month' ? 'active' : ''}`}
               onClick={handleResetToMonth}
             >
-              Monthly
+              {t('monthly', 'Monthly')}
             </button>
             <button
               type="button"
@@ -463,7 +462,7 @@ export default function Dashboard() {
               onClick={() => setViewMode('range')}
             >
               <CalendarRange size={13} style={{ display: 'inline', marginRight: '4px' }} />
-              Custom Range
+              {t('customRange', 'Custom Range')}
             </button>
           </div>
 
@@ -478,11 +477,11 @@ export default function Dashboard() {
               <button
                 className="btn btn-wrapped"
                 onClick={() => openWrapped(year - 1)}
-                title={`Celebrate Previous Year (${year - 1}) Financial Data`}
+                title={t('celebrateData', `Celebrate Previous Year Data`)}
                 style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}
               >
                 <Sparkles size={14} />
-                Celebrate {year - 1} Data
+                {t('celebrateData', 'Celebrate')} {year - 1}
               </button>
             </>
           ) : (
@@ -494,7 +493,7 @@ export default function Dashboard() {
                 required
                 title="Start Date"
               />
-              <span className="text-muted" style={{ fontSize: '0.8rem' }}>to</span>
+              <span className="text-muted" style={{ fontSize: '0.8rem' }}>{t('to', 'to')}</span>
               <input
                 type="date"
                 value={endDate}
@@ -507,7 +506,7 @@ export default function Dashboard() {
                 className="btn btn-primary"
                 style={{ fontSize: '0.82rem', padding: '0.4rem 0.75rem' }}
               >
-                Apply
+                {t('apply', 'Apply')}
               </button>
               {isRangeApplied && (
                 <button
@@ -531,7 +530,7 @@ export default function Dashboard() {
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
             <MessageCircle size={15} />
-            Share
+            {t('shareWhatsApp', 'Share')}
           </button>
           <button
             className="btn btn-secondary"
@@ -541,19 +540,19 @@ export default function Dashboard() {
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
             <FileDown size={15} />
-            Export
+            {t('export', 'Export')}
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="loading-state text-muted">Loading data...</div>
+        <div className="loading-state text-muted">{t('loadingData', 'Loading data...')}</div>
       ) : (
         <>
           {isRangeApplied && (
             <div className="range-active-banner animate-fade-in">
               <div>
-                <strong>📅 Custom Date Range Active:</strong> {startDate} &rarr; {endDate}
+                <strong>📅 {t('customRangeActive', 'Custom Date Range Active')}:</strong> {startDate} &rarr; {endDate}
               </div>
               <button
                 className="btn btn-secondary"
@@ -654,17 +653,17 @@ export default function Dashboard() {
                         <Gauge size={20} />
                       </div>
                       <div>
-                        <h4>Daily "Safe-to-Spend" Pace</h4>
+                        <h4>{t('dailySafePace', 'Daily "Safe-to-Spend" Pace')}</h4>
                         <span className="text-muted" style={{ fontSize: '0.78rem' }}>
-                          Burn velocity gauge for {months[month - 1]} {year}
+                          {t('burnVelocityGauge', 'Burn velocity gauge for')} {months[month - 1]} {year}
                         </span>
                       </div>
                     </div>
 
                     <div className={`burn-health-badge ${burnHealth}`}>
-                      {burnHealth === 'safe' && <><ShieldCheck size={13} /> Safe & Sustainable</>}
-                      {burnHealth === 'warning' && <><Flame size={13} /> High Velocity Burn</>}
-                      {burnHealth === 'deficit' && <><AlertTriangle size={13} /> Budget Deficit</>}
+                      {burnHealth === 'safe' && <><ShieldCheck size={13} /> {t('safeSustainable', 'Safe & Sustainable')}</>}
+                      {burnHealth === 'warning' && <><Flame size={13} /> {t('highVelocityBurn', 'High Velocity Burn')}</>}
+                      {burnHealth === 'deficit' && <><AlertTriangle size={13} /> {t('budgetDeficit', 'Budget Deficit')}</>}
                     </div>
                   </div>
 
@@ -673,7 +672,7 @@ export default function Dashboard() {
                       <span className={`burn-number ${burnHealth === 'deficit' ? 'burn-number-deficit' : ''}`}>
                         {formatCurrency(safeDaily > 0 ? safeDaily : 0)}
                       </span>
-                      <span className="burn-unit">/ day</span>
+                      <span className="burn-unit">{t('perDay', '/ day')}</span>
                     </div>
                     <p className="burn-explanation text-muted">
                       {report.savings > 0 ? (
@@ -685,8 +684,8 @@ export default function Dashboard() {
 
                     <div className="burn-progress-container">
                       <div className="burn-progress-meta">
-                        <span>Actual Burn: <strong>{formatCurrency(actualDailyBurn)}/day</strong> ({daysElapsed}d passed)</span>
-                        <span>Safe Target: <strong>{formatCurrency(safeDaily)}/day</strong></span>
+                        <span>{t('actualBurn', 'Actual Burn')}: <strong>{formatCurrency(actualDailyBurn)}/day</strong> ({daysElapsed} {t('daysPassed', 'days passed')})</span>
+                        <span>{t('safeTarget', 'Safe Target')}: <strong>{formatCurrency(safeDaily)}/day</strong></span>
                       </div>
                       <div className="burn-progress-track">
                         <div
@@ -946,17 +945,17 @@ export default function Dashboard() {
 
           {/* Recent Transactions */}
           <div className="dashboard-section">
-            <h3>Recent Transactions</h3>
+            <h3>{t('recentTransactions', 'Recent Transactions')}</h3>
             {recentTxns.length === 0 ? (
               <div className="empty-state glass-panel">
-                <p className="text-muted">No transactions this month. Add one from the Transactions page!</p>
+                <p className="text-muted">{t('noTransactionsPeriod', 'No transactions recorded for this period.')}</p>
               </div>
             ) : (
               <div className="glass-panel recent-txn-table">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Type</th><th>Category</th><th>Description</th><th>Date</th><th>Amount</th>
+                      <th>{t('type', 'Type')}</th><th>{t('category', 'Category')}</th><th>{t('description', 'Description')}</th><th>{t('date', 'Date')}</th><th>{t('amount', 'Amount')}</th>
                     </tr>
                   </thead>
                   <tbody>

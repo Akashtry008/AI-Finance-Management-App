@@ -11,7 +11,7 @@ import {
   getRecurringBills, addRecurringBill, deleteRecurringBill,
   markBillAsPaid, getBillDueStatus
 } from '../recurringBillsStore';
-import { useTranslation } from '../i18n';
+import { useTranslation, formatMonthName } from '../i18n';
 import './Transactions.css';
 import './Budgets.css';
 
@@ -46,6 +46,7 @@ export function getGoldenPillar(catName = '') {
 }
 
 function BudgetCard({ cat, month, year, onEdit, framework = 'standard' }) {
+  const { t, currentLang } = useTranslation();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -105,17 +106,17 @@ function BudgetCard({ cat, month, year, onEdit, framework = 'standard' }) {
               </span>
             )}
           </div>
-          <span className="text-muted" style={{fontSize:'0.8rem'}}>{MONTHS[month-1]} {year}</span>
+          <span className="text-muted" style={{fontSize:'0.8rem'}}>{formatMonthName(month, currentLang)} {year}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
           <button
             type="button"
             className="budget-card-edit-btn"
             onClick={() => onEdit(cat, status)}
-            title="Edit Budget Limit"
+            title={t('editBudget', "Edit Budget Limit")}
           >
             <Pencil size={12} />
-            <span>Edit</span>
+            <span>{t('edit', 'Edit')}</span>
           </button>
           {isOver
             ? <AlertTriangle size={20} color="var(--danger-color)" />
@@ -135,13 +136,21 @@ function BudgetCard({ cat, month, year, onEdit, framework = 'standard' }) {
 
       <div className="budget-stats">
         <div>
-          <div className="text-muted" style={{fontSize:'0.75rem'}}>SPENT</div>
+          <div className="text-muted" style={{fontSize:'0.75rem'}}>{t('spent', 'SPENT')}</div>
           <div className={`budget-amt ${isOver ? 'text-danger' : 'text-success'}`}>
             {formatCurrency(status.spent)}
           </div>
         </div>
-        <div style={{textAlign:'center'}}>
-          <div className="text-muted" style={{fontSize:'0.75rem'}}>REMAINING</div>
+        <div>
+          <div className="text-muted" style={{fontSize:'0.75rem'}}>{t('budgetAmount', 'BUDGET')}</div>
+          <div className="budget-amt">
+            {formatCurrency(targetLimit)}
+          </div>
+        </div>
+        <div>
+          <div className="text-muted" style={{fontSize:'0.75rem'}}>
+            {isOver ? t('overBudget', 'OVER') : t('remaining', 'REMAINING')}
+          </div>
           <div className={`budget-amt ${isOver ? 'text-danger' : ''}`}>
             {formatCurrency(Math.abs(status.remaining))}
             {isOver && <span style={{fontSize:'0.7rem'}}> over</span>}
@@ -211,7 +220,7 @@ const FALLBACK_EXPENSE_CATEGORIES = [
 export default function Budgets() {
   const { showConfirm } = useDialog();
   const now = new Date();
-  const { t } = useTranslation();
+  const { t, currentLang } = useTranslation();
   const [categories, setCategories] = useState([]);
   const displayCategories = (categories && categories.length > 0) ? categories : FALLBACK_EXPENSE_CATEGORIES;
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -348,19 +357,21 @@ export default function Budgets() {
     <div className="budgets-page animate-fade-in">
       <div className="page-header">
         <div>
-          <h2>Budgets</h2>
-          <p className="text-muted">Set and monitor your spending limits</p>
+          <h2>{t('smartBudgets', 'Smart Budgets')}</h2>
+          <p className="text-muted">{t('budgetsSubtitle', 'Category caps, rollover envelopes & velocity radar')}</p>
         </div>
         <button className="btn btn-primary" onClick={handleOpenCreate}>
-          <Plus size={16} /> Set Budget
+          <Plus size={16} /> {t('setBudget', 'Set Budget')}
         </button>
       </div>
 
       <div className="txn-controls glass-panel" style={{marginBottom:'1.5rem'}}>
         <div className="txn-filters">
-          <span className="text-muted" style={{fontSize:'0.9rem'}}>Viewing:</span>
+          <span className="text-muted" style={{fontSize:'0.9rem'}}>{t('view', 'Viewing')}:</span>
           <select value={month} onChange={e => setMonth(Number(e.target.value))}>
-            {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            {Array.from({ length: 12 }, (_, i) => (
+              <option key={i} value={i + 1}>{formatMonthName(i + 1, currentLang)}</option>
+            ))}
           </select>
           <select value={year} onChange={e => setYear(Number(e.target.value))}>
             {[2023, 2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
@@ -498,10 +509,10 @@ export default function Budgets() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <BellRing size={22} color="var(--accent-color)" />
-              <h3 style={{ margin: 0, fontSize: '1.4rem' }}>Recurring Bills & Subscription Radar</h3>
+              <h3 style={{ margin: 0, fontSize: '1.4rem' }}>{t('recurringRadarTitle', 'Recurring Bills & Subscription Radar')}</h3>
             </div>
             <p className="text-muted" style={{ margin: '0.25rem 0 0 0', fontSize: '0.88rem' }}>
-              Track fixed monthly commitments, renewal dates, and log payments with 1-click
+              {t('recurringRadarDesc', 'Track fixed monthly commitments, renewal dates, and log payments with 1-click')}
             </p>
           </div>
           <button
@@ -509,14 +520,14 @@ export default function Budgets() {
             onClick={() => setShowRecurringModal(true)}
             style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
           >
-            <Plus size={16} /> Add Subscription / Bill
+            <Plus size={16} /> {t('addSubscription', 'Add Subscription / Bill')}
           </button>
         </div>
 
         {/* Radar Summary KPI row */}
         <div className="radar-kpi-row">
           <div className="radar-kpi-card glass-panel">
-            <span className="text-muted" style={{ fontSize: '0.78rem' }}>TOTAL MONTHLY COMMITMENT</span>
+            <span className="text-muted" style={{ fontSize: '0.78rem' }}>{t('totalCommitment', 'TOTAL MONTHLY COMMITMENT')}</span>
             <div className="radar-kpi-val" style={{ color: '#fbbf24' }}>
               {formatCurrency(recurringBills.reduce((acc, b) => acc + (parseFloat(b.amount) || 0), 0))}
             </div>

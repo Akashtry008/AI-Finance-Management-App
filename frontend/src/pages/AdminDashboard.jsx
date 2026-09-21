@@ -3,10 +3,12 @@ import api from '../api';
 import { Users, Activity, Trash2, Calendar, ShieldCheck, Server, CheckCircle2, Globe, Lock } from 'lucide-react';
 import { useDialog } from '../context/DialogContext';
 import { formatErrorMessage } from '../utils';
+import { useTranslation, formatMonthName } from '../i18n';
 import './AdminDashboard.css';
 
 export default function AdminDashboard() {
   const { showConfirm, showAlert } = useDialog();
+  const { t, currentLang } = useTranslation();
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
@@ -37,10 +39,10 @@ export default function AdminDashboard() {
 
   const handleDeleteUser = async (userId) => {
     const confirmed = await showConfirm({
-      title: 'Delete Platform User',
-      message: 'Are you sure you want to delete this user? All their financial records and data will be permanently lost.',
-      confirmText: 'Delete User',
-      cancelText: 'Cancel',
+      title: t('deleteUser', 'Delete Platform User'),
+      message: t('confirmDeleteUser', 'Are you sure you want to delete this user? All their financial records and data will be permanently lost.'),
+      confirmText: t('delete', 'Delete User'),
+      cancelText: t('cancel', 'Cancel'),
       isDanger: true,
     });
     if (!confirmed) return;
@@ -60,19 +62,16 @@ export default function AdminDashboard() {
     }
   };
 
-  const months = [
-    'January','February','March','April','May','June',
-    'July','August','September','October','November','December'
-  ];
+  const months = Array.from({ length: 12 }, (_, i) => formatMonthName(i + 1, currentLang));
 
-  if (loading) return <div className="loading-state">Loading system data...</div>;
+  if (loading) return <div className="loading-state">{t('loadingData', 'Loading system data...')}</div>;
 
   return (
     <div className="admin-dashboard animate-fade-in">
       <header className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1>System Overview</h1>
-          <p className="text-muted">Platform statistics and user management</p>
+          <h1>{t('systemOverview', 'System Overview')}</h1>
+          <p className="text-muted">{t('adminSubtitle', 'Platform statistics and user management')}</p>
         </div>
         <div className="dashboard-filters">
           <select value={month} onChange={e => setMonth(Number(e.target.value))}>
@@ -90,7 +89,7 @@ export default function AdminDashboard() {
             <Users size={24} />
           </div>
           <div className="stat-details">
-            <span className="stat-label">Total Users</span>
+            <span className="stat-label">{t('totalUsers', 'Total Users')}</span>
             <span className="stat-value">{stats.total_users}</span>
           </div>
         </div>
@@ -100,7 +99,7 @@ export default function AdminDashboard() {
             <Activity size={24} />
           </div>
           <div className="stat-details">
-            <span className="stat-label">Total Transactions</span>
+            <span className="stat-label">{t('transactions', 'Total Transactions')}</span>
             <span className="stat-value">{stats.total_transactions}</span>
           </div>
         </div>
@@ -110,7 +109,7 @@ export default function AdminDashboard() {
             <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>$</span>
           </div>
           <div className="stat-details">
-            <span className="stat-label">Total Volume</span>
+            <span className="stat-label">{t('totalVolume', 'Total Volume')}</span>
             <span className="stat-value">${stats.total_volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         </div>
@@ -120,7 +119,7 @@ export default function AdminDashboard() {
             <ShieldCheck size={24} />
           </div>
           <div className="stat-details">
-            <span className="stat-label">System Security</span>
+            <span className="stat-label">{t('securityLockTitle', 'System Security')}</span>
             <span className="stat-value" style={{ fontSize: '1.2rem', color: '#10b981' }}>Active (3 Modes)</span>
           </div>
         </div>
@@ -162,7 +161,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="admin-users-section glass-panel">
-        <h2 className="section-title">Registered Users</h2>
+        <h2 className="section-title">{t('userDirectory', 'Registered Users')}</h2>
         <div className="table-responsive">
           <table className="admin-users-table">
             <thead>

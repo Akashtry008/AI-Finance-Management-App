@@ -3,7 +3,8 @@ import api from '../api';
 import {
   User, Lock, Save, Calendar, Check, AlertOctagon, Sparkles,
   CheckCircle2, ShieldCheck, Shield, KeyRound, Grid3X3,
-  Download, Upload, FileArchive, Database, Camera, Trash2
+  Download, Upload, FileArchive, Database, Camera, Trash2,
+  Mail, Send, Eye, EyeOff, HelpCircle
 } from 'lucide-react';
 import { SUPPORTED_CURRENCIES, setPlatformCurrency, formatErrorMessage } from '../utils';
 import { downloadFinanceOsZipArchive } from '../utils/zipExport';
@@ -45,6 +46,44 @@ export default function Profile() {
   const [exportingZip, setExportingZip] = useState(false);
   const [restoringData, setRestoringData] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState({ type: '', text: '' });
+
+  // Email & SMTP Configuration State
+  const [smtpStatus, setSmtpStatus] = useState(null);
+  const [smtpForm, setSmtpForm] = useState({
+    server: 'smtp.gmail.com',
+    port: 587,
+    username: '',
+    password: '',
+    sender_name: 'FinanceOS Security',
+    from_email: ''
+  });
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+  const [savingSmtp, setSavingSmtp] = useState(false);
+  const [testingSmtp, setTestingSmtp] = useState(false);
+  const [smtpFeedback, setSmtpFeedback] = useState({ type: '', text: '' });
+  const [showGmailGuide, setShowGmailGuide] = useState(false);
+
+  const fetchSmtpStatus = async () => {
+    try {
+      const res = await api.get('/system/smtp-status');
+      setSmtpStatus(res.data);
+      if (res.data) {
+        setSmtpForm(prev => ({
+          ...prev,
+          server: res.data.server || 'smtp.gmail.com',
+          port: res.data.port || 587,
+          sender_name: res.data.sender_name || 'FinanceOS Security',
+          from_email: res.data.from_email || '',
+        }));
+      }
+    } catch (e) {
+      console.warn('Failed to fetch SMTP status', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchSmtpStatus();
+  }, []);
 
   const avatarInputRef = React.useRef(null);
   const [avatarUrl, setAvatarUrl] = useState(() => {
@@ -690,6 +729,214 @@ export default function Profile() {
               {restoreStatus.text}
             </div>
           )}
+        </div>
+
+        {/* Email & SMTP Service Configuration Card */}
+        <div className="profile-section glass-panel" style={{ gridColumn: '1 / -1' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.8rem' }}>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Mail size={20} color="#6366f1" /> {t('smtpSettings', 'Email & SMTP Configuration')}
+            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              {smtpStatus?.is_configured ? (
+                <span style={{
+                  background: 'rgba(16, 185, 129, 0.15)',
+                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  color: '#34d399',
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '20px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}>
+                  <CheckCircle2 size={13} /> {t('smtpConnected', 'Configured & Active')} ({smtpStatus.username_masked})
+                </span>
+              ) : (
+                <span style={{
+                  background: 'rgba(245, 158, 11, 0.15)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  color: '#fbbf24',
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: '20px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600
+                }}>
+                  ● {t('smtpDisconnected', 'Credentials Missing')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <p className="text-muted" style={{ fontSize: '0.86rem', margin: '0 0 1.25rem 0' }}>
+            {t('smtpSettingsSubtitle', 'Configure real email delivery for password reset tokens, OTPs and alerts')}
+          </p>
+
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            if (!smtpForm.username || !smtpForm.password) {
+              setSmtpFeedback({ type: 'error', text: 'SMTP Username and Password are required.' });
+              return;
+            }
+            setSavingSmtp(true);
+            setSmtpFeedback({ type: '', text: '' });
+            try {
+              await api.post('/system/smtp-config', smtpForm);
+              setSmtpFeedback({ type: 'success', text: t('smtpSavedSuccess', 'SMTP configuration saved and persisted to .env successfully!') });
+              fetchSmtpStatus();
+            } catch (err) {
+              setSmtpFeedback({ type: 'error', text: formatErrorMessage(err, 'Failed to update SMTP settings.') });
+            } finally {
+              setSavingSmtp(false);
+            }
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>{t('smtpServer', 'SMTP Host / Server')}</label>
+                <input
+                  type="text"
+                  placeholder="smtp.gmail.com"
+                  value={smtpForm.server}
+                  onChange={e => setSmtpForm({ ...smtpForm, server: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>{t('smtpPort', 'SMTP Port (587 or 465)')}</label>
+                <input
+                  type="number"
+                  placeholder="587"
+                  value={smtpForm.port}
+                  onChange={e => setSmtpForm({ ...smtpForm, port: Number(e.target.value) })}
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>{t('smtpUsername', 'SMTP Username / Email')}</label>
+                <input
+                  type="email"
+                  placeholder="yourname@gmail.com"
+                  value={smtpForm.username}
+                  onChange={e => setSmtpForm({ ...smtpForm, username: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ margin: 0 }}>{t('smtpPassword', 'SMTP Password / App Password')}</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowSmtpPassword(v => !v)}
+                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', padding: 0 }}
+                  >
+                    {showSmtpPassword ? <EyeOff size={13} /> : <Eye size={13} />}
+                    <span>{showSmtpPassword ? 'Hide' : 'Show'}</span>
+                  </button>
+                </div>
+                <input
+                  type={showSmtpPassword ? 'text' : 'password'}
+                  placeholder="••••••••••••••••"
+                  value={smtpForm.password}
+                  onChange={e => setSmtpForm({ ...smtpForm, password: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>{t('senderName', 'Sender Display Name')}</label>
+                <input
+                  type="text"
+                  placeholder="FinanceOS Security"
+                  value={smtpForm.sender_name}
+                  onChange={e => setSmtpForm({ ...smtpForm, sender_name: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>{t('fromEmail', 'Sender From Email (Optional)')}</label>
+                <input
+                  type="email"
+                  placeholder={smtpForm.username || "noreply@financeos.com"}
+                  value={smtpForm.from_email}
+                  onChange={e => setSmtpForm({ ...smtpForm, from_email: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={savingSmtp}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+              >
+                <Save size={16} /> {savingSmtp ? t('loading', 'Saving...') : t('saveSmtp', 'Save SMTP Settings')}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={async () => {
+                  setTestingSmtp(true);
+                  setSmtpFeedback({ type: '', text: '' });
+                  try {
+                    const res = await api.post('/system/test-smtp', { recipient_email: profile.email });
+                    setSmtpFeedback({ type: 'success', text: res.data.message || t('smtpTestSuccess', 'Verification email sent successfully! Check your inbox.') });
+                  } catch (err) {
+                    setSmtpFeedback({ type: 'error', text: formatErrorMessage(err, t('smtpTestFailed', 'Failed to dispatch verification email. Please check credentials.')) });
+                  } finally {
+                    setTestingSmtp(false);
+                  }
+                }}
+                disabled={testingSmtp || (!smtpStatus?.is_configured && !smtpForm.password)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                title={`Send a test email to ${profile.email || 'your email'}`}
+              >
+                <Send size={15} /> {testingSmtp ? t('loading', 'Testing...') : t('testSmtp', 'Send Verification Email')}
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowGmailGuide(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.82rem', marginLeft: 'auto' }}
+              >
+                <HelpCircle size={14} />
+                <span>{showGmailGuide ? 'Hide Gmail Guide' : t('gmailGuideTitle', 'Gmail Setup Guide')}</span>
+              </button>
+            </div>
+
+            {showGmailGuide && (
+              <div style={{
+                background: 'rgba(99, 102, 241, 0.08)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                borderRadius: '10px',
+                padding: '0.85rem 1rem',
+                fontSize: '0.82rem',
+                marginBottom: '1rem'
+              }}>
+                <strong style={{ color: '#818cf8', display: 'block', marginBottom: '0.35rem' }}>
+                  🔑 {t('gmailGuideTitle', 'How to get a Gmail App Password in 60 seconds')}:
+                </strong>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', color: 'var(--text-color)' }}>
+                  <span>{t('gmailStep1', '1. Turn on 2-Step Verification in your Google Account Security settings.')}</span>
+                  <span>{t('gmailStep2', '2. Open myaccount.google.com/apppasswords and generate an app password for \'Mail\'.')}</span>
+                  <span>{t('gmailStep3', '3. Copy the 16-character generated password and paste it into SMTP Password above.')}</span>
+                </div>
+              </div>
+            )}
+
+            {smtpFeedback.text && (
+              <div className={`profile-message ${smtpFeedback.type}`} style={{ margin: '0.5rem 0 0' }}>
+                {smtpFeedback.type === 'success' ? <Check size={16}/> : <AlertOctagon size={16}/>}
+                {smtpFeedback.text}
+              </div>
+            )}
+          </form>
         </div>
 
         {/* 100% Free Unlimited Tier Status Card */}
